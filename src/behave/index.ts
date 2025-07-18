@@ -10,21 +10,16 @@ export enum Error
 
 export interface Options
 {
-    cwd?: string;
+    cwd: string;
 }
 
-export async function execute(args: string[], options: Options = {}): Promise<Result<string, Error | python.Error>>
+export async function execute(args: string[], options: Options): Promise<Result<string, Error | python.Error>>
 {
     const executable = python.getExecutable();
 
     if (executable.isErr())
     {
         return err(executable.error);
-    }
-
-    if (!options.cwd)
-    {
-        options.cwd = workspace.workspaceFolders?.[0].uri.fsPath;
     }
 
     const { stdout, stderr, failed } = await execa(executable.value, ["-m", "behave", ...args], options);
