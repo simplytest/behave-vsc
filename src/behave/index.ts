@@ -1,6 +1,6 @@
 import { execa } from "execa";
 import { err, ok, Result } from "neverthrow";
-import { window } from "vscode";
+import { window, workspace } from "vscode";
 import * as python from "../utils/python";
 
 export enum Error
@@ -8,7 +8,12 @@ export enum Error
     Unknown,
 }
 
-export async function execute(args: string[], cwd: string): Promise<Result<string, Error | python.Error>>
+export interface Options
+{
+    cwd?: string;
+}
+
+export async function execute(args: string[], options: Options = {}): Promise<Result<string, Error | python.Error>>
 {
     const executable = python.getExecutable();
 
@@ -17,7 +22,12 @@ export async function execute(args: string[], cwd: string): Promise<Result<strin
         return err(executable.error);
     }
 
-    const { stdout, stderr, failed } = await execa(executable.value, ["-m", "behave", ...args], { cwd });
+    if (!options.cwd)
+    {
+        options.cwd = workspace.workspaceFolders?.[0].uri.fsPath;
+    }
+
+    const { stdout, stderr, failed } = await execa(executable.value, ["-m", "behave", ...args], options);
 
     if (failed)
     {
