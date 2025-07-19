@@ -1,4 +1,6 @@
-enum Status
+import { Uri } from "vscode";
+
+export enum Status
 {
     // TODO: There are  more status values!
     UNTESTED = "untested",
@@ -7,43 +9,59 @@ enum Status
     FAILED = "failed",
 }
 
+export enum Keyword
+{
+    FEATURE = "Feature",
+    SCENARIO = "Scenario",
+    WHEN = "When",
+    THEN = "Then",
+}
+
 export interface Location
 {
     file: string;
     line: number;
-    path: string;
+    bare: string;
+    full: Uri;
 }
 
 export interface Result
 {
     status: Status;
     duration: number;
+    error_message?: string[]; // TODO: Allow typings to detect that this exists if status is failed
 }
 
-interface ItemBase
+export interface Match
 {
+    location: Location;
+}
+
+interface Common
+{
+    keyword: Keyword;
     name: string;
     location: Location;
 }
 
-export interface Step extends ItemBase
+export interface Step extends Common
 {
-    result: Result;
-    keyword: string;
+    result?: Result;
 }
 
-export interface Scenario extends ItemBase
+export interface Scenario extends Common
 {
-    status: string;
+    status: Status;
     steps: Step[];
     tags: string[];
 }
 
-export interface Feature extends ItemBase
+export interface Feature extends Common
 {
-    status: string;
+    status: Status;
     tags: string[];
     elements: Scenario[];
 }
 
-export type BehaveItem = Feature | Scenario | Step;
+export type Item = Feature | Scenario | Step;
+export type Node = Item | Result | Match;
