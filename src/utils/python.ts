@@ -1,6 +1,7 @@
-import { PythonExtension } from "@vscode/python-extension";
-import { err, ok, Result } from "neverthrow";
-import { Extension, extensions, window } from "vscode";
+import { PVSC_EXTENSION_ID, PythonExtension, Resource } from "@vscode/python-extension";
+import { err, ok } from "neverthrow";
+import { extensions } from "vscode";
+import { LOG } from "../log";
 
 export enum Error
 {
@@ -8,26 +9,26 @@ export enum Error
     ExtensionInactive,
 }
 
-export function getExtension(): Result<Extension<PythonExtension>, Error>
+export function getExtension()
 {
-    const extension = extensions.getExtension("ms-python.python");
+    const extension = extensions.getExtension<PythonExtension>(PVSC_EXTENSION_ID);
 
     if (!extension)
     {
-        window.showErrorMessage("Could not find 'ms-python.python' extension");
+        LOG.toastError({ message: `Could not find Python (${PVSC_EXTENSION_ID}) extension` });
         return err(Error.MissingExtension);
     }
 
     if (!extension.isActive)
     {
-        window.showErrorMessage("Could not activate 'ms-python.python' extension");
+        LOG.toastError({ message: "Python extension is not active" });
         return err(Error.ExtensionInactive);
     }
 
     return ok(extension);
 }
 
-export function getExecutable(): Result<string, Error>
+export function getExecutable(workspace: Resource)
 {
-    return getExtension().map(extension => extension.exports.environments.getActiveEnvironmentPath().path);
+    return getExtension().map(extension => extension.exports.environments.getActiveEnvironmentPath(workspace).path);
 }
