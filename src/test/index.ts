@@ -70,8 +70,8 @@ function makeTestMessage(item: Item, parent: TestItem, run: TestRun)
 
     if (match)
     {
-        rtn.expectedOutput = match[0];
-        rtn.actualOutput = match[1];
+        rtn.expectedOutput = match[1];
+        rtn.actualOutput = match[2];
     }
 
     return rtn;
