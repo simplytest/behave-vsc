@@ -1,4 +1,4 @@
-import { LogLevel, LogOutputChannel, window } from "vscode";
+import { env, LogOutputChannel, Uri, window } from "vscode";
 
 interface ToastParams<T extends string>
 {
@@ -7,26 +7,49 @@ interface ToastParams<T extends string>
     detail?: any[];
 }
 
-function extend(original: LogOutputChannel)
+type LoggerFunction = (message: string, ...args: any[]) => void;
+type ToastFunction<T extends string> = (message: string, ...items: T[]) => Thenable<T>;
+
+function toastify<T extends string>(original: LoggerFunction, toast: ToastFunction<T>)
 {
     const unwrap = <T>(value?: T[]) => value || [];
     const concat = (value?: any[]) => unwrap(value).reduce((prev, curr) => [...prev, "\n", curr], value ? ["\n"] : []);
 
-    const toastError = <T extends string>({ message, detail: additional, actions }: ToastParams<T>) =>
+    return ({ message, detail, actions }: ToastParams<T>) =>
     {
-        original.error(message, ...concat(additional));
-        return window.showErrorMessage(message, ...unwrap(actions));
+        original(message, ...concat(detail));
+        return toast(message, ...unwrap(actions));
     };
-
-    const toastInfo = <T extends string>({ message, detail: additional, actions }: ToastParams<T>) =>
-    {
-        original.info(message, ...concat(additional));
-        return window.showInformationMessage(message, ...unwrap(actions));
-    };
-
-    original.show();
-
-    return { ...original, toastError, toastInfo };
 }
 
-export const LOG = extend(window.createOutputChannel("Behave", { log: true }));
+function init(original: LogOutputChannel)
+{
+    original.show();
+
+    const panic = async (message: string, ...args: any[]) =>
+    {
+        original.error(`[Panic] ${message}`, ...args);
+
+        const result = window.showErrorMessage(
+            "Panic!",
+            { modal: true, detail: "Please check the output window and report an issue" },
+            "Report Issue",
+        );
+
+        if (await result !== "Report Issue")
+        {
+            return;
+        }
+
+        env.openExternal(Uri.parse("https://github.com/simplytest/behave-vsc/issues"));
+    };
+
+    return {
+        ...original,
+        panic,
+        toastError: toastify(original.error, window.showErrorMessage),
+        toastInfo: toastify(original.info, window.showInformationMessage),
+    };
+}
+
+export const LOG = init(window.createOutputChannel("Behave", { log: true }));

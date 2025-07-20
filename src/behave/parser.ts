@@ -1,12 +1,12 @@
-import { err, ok } from "neverthrow";
+import { readFile } from "fs/promises";
+import { err, fromPromise, ok } from "neverthrow";
 import { Uri, WorkspaceFolder } from "vscode";
-import { invoke } from ".";
 import { DeepReplace } from "../utils/traits";
 import { Feature, Item, Keyword } from "./types";
 
 type Raw<T> = DeepReplace<T, "location", string>;
 
-function updateLocation<T extends Item>(item: Raw<T>, workspace: WorkspaceFolder)
+function updateProperties<T extends Item>(item: Raw<T>, workspace: WorkspaceFolder)
 {
     const bare = item.location;
     const delim = bare.lastIndexOf(":");
@@ -29,12 +29,12 @@ function updateLocation<T extends Item>(item: Raw<T>, workspace: WorkspaceFolder
 
     if ("elements" in item)
     {
-        changes.push({ elements: item.elements.map(element => updateLocation(element, workspace)) });
+        changes.push({ elements: item.elements.map(element => updateProperties(element, workspace)) });
     }
 
     if ("steps" in item)
     {
-        changes.push({ steps: item.steps.map(step => updateLocation(step, workspace)) });
+        changes.push({ steps: item.steps.map(step => updateProperties(step, workspace)) });
     }
 
     return { ...item, ...changes.reduce((prev, current) => ({ ...prev, ...current }), {}) } as T;
@@ -42,22 +42,12 @@ function updateLocation<T extends Item>(item: Raw<T>, workspace: WorkspaceFolder
 
 export function parse(data: string, workspace: WorkspaceFolder)
 {
-    return (JSON.parse(data) as Raw<Feature[]>).map(feature => updateLocation(feature, workspace));
-}
-
-export enum Error
-{
-    NotFeature,
+    return (JSON.parse(data) as Raw<Feature[]>).map(feature => updateProperties(feature, workspace));
 }
 
 export async function parseFile(path: string, workspace: WorkspaceFolder)
 {
-    if (!path.endsWith(".feature"))
-    {
-        return err(Error.NotFeature);
-    }
-
-    const data = await invoke(["--dry-run", "--no-junit", "--no-summary", "--quiet", "--format=json", path], workspace);
+    const data = await fromPromise(readFile(path, "utf8"), e => e);
 
     if (data.isErr())
     {
@@ -65,4 +55,21 @@ export async function parseFile(path: string, workspace: WorkspaceFolder)
     }
 
     return ok(parse(data.value, workspace));
+}
+
+export function traverseTree<T>(item: Item, visitor: (node: Item, parent?: T) => T, parent?: T)
+{
+    const rtn = visitor(item, parent);
+
+    if ("elements" in item)
+    {
+        item.elements.forEach(x => traverseTree(x, visitor, rtn));
+    }
+
+    if ("steps" in item)
+    {
+        item.steps.forEach(x => traverseTree(x, visitor, rtn));
+    }
+
+    return rtn;
 }

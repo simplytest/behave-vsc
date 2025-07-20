@@ -5,7 +5,7 @@ import { LOG } from "../log";
 
 export enum Error
 {
-    MissingExtension,
+    ExtensionMissing,
     ExtensionInactive,
 }
 
@@ -16,7 +16,7 @@ export function getExtension()
     if (!extension)
     {
         LOG.toastError({ message: `Could not find Python (${PVSC_EXTENSION_ID}) extension` });
-        return err(Error.MissingExtension);
+        return err(Error.ExtensionMissing);
     }
 
     if (!extension.isActive)

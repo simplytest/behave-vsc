@@ -1,13 +1,13 @@
 {
     "name": "behave-runner",
     "displayName": "Behave Runner",
-    "description": "Debugging support for Behave",
+    "description": "Test Runner support for Behave",
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.102.0"
     },
     "categories": [
-        "Other"
+        "Testing"
     ],
     "activationEvents": [
         "onStartupFinished"
@@ -31,6 +31,7 @@
     "devDependencies": {
         "@types/mocha": "^10.0.10",
         "@types/node": "20.x",
+        "@types/regexp.escape": "^2.0.0",
         "@types/vscode": "^1.102.0",
         "@typescript-eslint/eslint-plugin": "^8.31.1",
         "@typescript-eslint/parser": "^8.31.1",
@@ -44,6 +45,7 @@
     },
     "dependencies": {
         "execa": "^9.6.0",
-        "neverthrow": "^8.2.0"
+        "neverthrow": "^8.2.0",
+        "regexp.escape": "^2.0.1"
     }
 }
