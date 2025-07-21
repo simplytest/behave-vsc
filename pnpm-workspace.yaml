@@ -1,0 +1,6 @@
+auditConfig: {}
+
+onlyBuiltDependencies:
+  - '@vscode/vsce-sign'
+  - esbuild
+  - keytar
