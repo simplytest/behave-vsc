@@ -1,9 +1,6 @@
-import { randomUUID } from "crypto";
-import { mkdtemp } from "fs/promises";
-import { err, fromPromise, ok, Result } from "neverthrow";
-import { tmpdir } from "os";
-import { join } from "path";
+import { err, ok, Result } from "neverthrow";
 import { debug as debugging, DebugConfiguration, DebugSession, Disposable, Uri, WorkspaceFolder } from "vscode";
+import { cachedTempFile } from "../cache";
 import { LOG } from "../log";
 import { dispose } from "../utils/disposable";
 import { parseFile } from "./parser";
@@ -11,8 +8,6 @@ import { Feature } from "./types";
 
 import * as utils from "../utils/process";
 import * as python from "../utils/python";
-
-const tempDirectory = fromPromise(mkdtemp(join(tmpdir(), "behave-")), e => e);
 
 export function spawn(args: string[], workspace: WorkspaceFolder)
 {
@@ -26,19 +21,7 @@ export function spawn(args: string[], workspace: WorkspaceFolder)
     return ok(utils.spawn(executable.value, ["-m", "behave", ...args], { cwd: workspace.uri.fsPath }));
 }
 
-async function makeTempFile()
-{
-    const tempDir = await tempDirectory;
-
-    if (tempDir.isErr())
-    {
-        return err(tempDir.error);
-    }
-
-    return ok(join(tempDir.value, `${randomUUID()}.json`));
-}
-
-function makeArguments(args: string[], temp: string)
+function makeArguments(args: string[], output: string)
 {
     return [
         "--show-timings",
@@ -49,14 +32,20 @@ function makeArguments(args: string[], temp: string)
         "--no-junit",
         "--no-summary",
         "--outfile",
-        temp,
+        output,
         ...args,
     ];
 }
 
-export async function run(args: string[], workspace: WorkspaceFolder)
+export interface ExecutionOptions
 {
-    const temp = await makeTempFile();
+    workspace: WorkspaceFolder;
+    name?: string;
+}
+
+export async function run(args: string[], { workspace, name }: ExecutionOptions)
+{
+    const temp = await cachedTempFile(workspace, name);
 
     if (temp.isErr())
     {
@@ -84,9 +73,9 @@ export enum Error
     FailedToStartDebugger,
 }
 
-export async function debug(args: string[], workspace: WorkspaceFolder)
+export async function debug(args: string[], { workspace, name }: ExecutionOptions)
 {
-    const temp = await makeTempFile();
+    const temp = await cachedTempFile(workspace, name);
 
     if (temp.isErr())
     {
@@ -158,12 +147,14 @@ export async function debug(args: string[], workspace: WorkspaceFolder)
 
 export async function analyze(file: Uri, workspace: WorkspaceFolder)
 {
-    if (!file.fsPath.endsWith(".feature"))
+    const { fsPath } = file;
+
+    if (!fsPath.endsWith(".feature"))
     {
         return ok([]);
     }
 
-    const spawned = await run(["--dry-run", file.fsPath], workspace);
+    const spawned = await run(["--dry-run", fsPath], { workspace, name: fsPath });
 
     if (spawned.isErr())
     {

@@ -106,8 +106,8 @@ async function runHandler(
     }
 
     const run = await (profile.kind === TestRunProfileKind.Run
-        ? behave.run(args, workspace)
-        : behave.debug(args, workspace));
+        ? behave.run(args, { workspace })
+        : behave.debug(args, { workspace }));
 
     if (run.isErr())
     {
