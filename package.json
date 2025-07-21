@@ -1,8 +1,14 @@
 {
     "name": "behave-runner",
-    "displayName": "Behave Runner",
+    "publisher": "SimplyTest",
     "description": "Test Runner support for Behave",
+    "displayName": "Behave",
     "version": "0.0.1",
+    "preview": true,
+    "repository": {
+        "url": "https://github.com/simplytest/behave-vsc",
+        "type": "git"
+    },
     "engines": {
         "vscode": "^1.102.0"
     },
@@ -14,13 +20,14 @@
         "Behave",
         "Test Runner"
     ],
+    "icon": "./data/logo.png",
     "activationEvents": [
         "onStartupFinished"
     ],
     "main": "./out/bundle",
     "contributes": {},
     "scripts": {
-        "esbuild": "esbuild ./src/extension.ts --bundle --outfile=out/bundle.js --external:vscode --format=cjs --platform=node",
+        "esbuild": "esbuild ./src/extension.ts --bundle --external:vscode --outfile=out/bundle.js --format=cjs --platform=node",
         "compile": "pnpm run esbuild --sourcemap",
         "prepublish": "pnpm run check-ts && pnpm run lint && pnpm run esbuild --minify",
         "lint": "eslint src",
@@ -38,10 +45,10 @@
         "@typescript-eslint/parser": "^8.37.0",
         "@vscode/python-extension": "^1.0.5",
         "@vscode/vsce": "^3.6.0",
+        "concurrently": "^9.2.0",
         "esbuild": "^0.25.8",
         "eslint": "^9.31.0",
-        "typescript": "^5.8.3",
-        "concurrently": "^9.2.0"
+        "typescript": "^5.8.3"
     },
     "dependencies": {
         "execa": "^9.6.0",

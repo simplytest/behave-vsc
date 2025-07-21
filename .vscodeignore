@@ -1,7 +1,6 @@
 src/**
-out/**
-node_modules/**
 example/**
+node_modules/**
 
 .gitignore
 .vscode/**
