@@ -1,10 +1,11 @@
 import { err, ok, Result } from "neverthrow";
-import { debug as debugging, DebugConfiguration, DebugSession, Disposable, Uri, WorkspaceFolder } from "vscode";
-import { cachedTempFile } from "../cache";
+import { debug as debugging, DebugConfiguration, DebugSession, Disposable, WorkspaceFolder } from "vscode";
+import { cachedTempFile, withPrevious } from "../cache";
 import { LOG } from "../log";
+import { settings } from "../settings";
 import { dispose } from "../utils/disposable";
 import { parseFile } from "./parser";
-import { Feature } from "./types";
+import { Tree } from "./types";
 
 import * as utils from "../utils/process";
 import * as python from "../utils/python";
@@ -21,7 +22,7 @@ export function spawn(args: string[], workspace: WorkspaceFolder)
     return ok(utils.spawn(executable.value, ["-m", "behave", ...args], { cwd: workspace.uri.fsPath }));
 }
 
-function makeArguments(args: string[], output: string)
+function makeArguments(args: string[], root: WorkspaceFolder, output: string)
 {
     return [
         "--show-timings",
@@ -34,25 +35,26 @@ function makeArguments(args: string[], output: string)
         "--outfile",
         output,
         ...args,
+        ...settings.arguments(root),
     ];
 }
 
 export interface ExecutionOptions
 {
     workspace: WorkspaceFolder;
-    name?: string;
+    path?: string;
 }
 
-export async function run(args: string[], { workspace, name }: ExecutionOptions)
+export async function run(args: string[], { workspace, path }: ExecutionOptions)
 {
-    const temp = await cachedTempFile(workspace, name);
+    const output = await cachedTempFile(workspace, path, { invalidate: true });
 
-    if (temp.isErr())
+    if (output.isErr())
     {
-        return err(temp.error);
+        return err(output.error);
     }
 
-    const spawned = spawn(makeArguments(args, temp.value), workspace);
+    const spawned = spawn(makeArguments(args, workspace, output.value), workspace);
 
     if (spawned.isErr())
     {
@@ -61,11 +63,11 @@ export async function run(args: string[], { workspace, name }: ExecutionOptions)
 
     const { result, abort } = spawned.value;
 
-    const parsed = new Promise<Result<Feature[], unknown>>(resolve =>
-        result.then(async () => resolve(await parseFile(temp.value, workspace)))
+    const parsed = new Promise<Result<Tree, unknown>>(resolve =>
+        result.then(async () => resolve(await parseFile(output.value, workspace)))
     );
 
-    return ok({ parsed, abort });
+    return ok({ result, parsed, abort });
 }
 
 export enum Error
@@ -73,13 +75,13 @@ export enum Error
     FailedToStartDebugger,
 }
 
-export async function debug(args: string[], { workspace, name }: ExecutionOptions)
+export async function debug(args: string[], { workspace, path }: ExecutionOptions)
 {
-    const temp = await cachedTempFile(workspace, name);
+    const output = await cachedTempFile(workspace, path, { invalidate: true });
 
-    if (temp.isErr())
+    if (output.isErr())
     {
-        return err(temp.error);
+        return err(output.error);
     }
 
     const config: DebugConfiguration = {
@@ -89,7 +91,7 @@ export async function debug(args: string[], { workspace, name }: ExecutionOption
         type: "python",
 
         module: "behave",
-        args: makeArguments(args, temp.value),
+        args: makeArguments(args, workspace, output.value),
         cwd: workspace.uri.fsPath,
     };
 
@@ -119,11 +121,11 @@ export async function debug(args: string[], { workspace, name }: ExecutionOption
 
     const session = await sessionFuture;
 
-    let resolveParsed = (_: Result<Feature[], unknown>) =>
+    let resolveParsed = (_: Result<Tree, unknown>) =>
     {
         LOG.panic("Results were resolved before promise was created");
     };
-    const parsed = new Promise<Result<Feature[], unknown>>(resolve => resolveParsed = resolve);
+    const parsed = new Promise<Result<Tree, unknown>>(resolve => resolveParsed = resolve);
 
     debugging.onDidTerminateDebugSession(
         async (terminated) =>
@@ -133,7 +135,7 @@ export async function debug(args: string[], { workspace, name }: ExecutionOption
                 return;
             }
 
-            resolveParsed(await parseFile(temp.value, workspace));
+            resolveParsed(await parseFile(output.value, workspace));
             dispose(disposables);
         },
         undefined,
@@ -145,16 +147,22 @@ export async function debug(args: string[], { workspace, name }: ExecutionOption
     return ok({ abort, parsed });
 }
 
-export async function analyze(file: Uri, workspace: WorkspaceFolder)
+export interface AnalyzeOptions
 {
-    const { fsPath } = file;
+    skipCache?: boolean;
+}
 
-    if (!fsPath.endsWith(".feature"))
+export async function analyze(path: string, workspace: WorkspaceFolder, options?: AnalyzeOptions)
+{
+    const previous = options?.skipCache ? err() : await withPrevious(path, workspace, parseFile);
+
+    if (previous.isOk())
     {
-        return ok([]);
+        LOG.debug("Reusing previous result", path, workspace.name);
+        return ok(previous.value);
     }
 
-    const spawned = await run(["--dry-run", fsPath], { workspace, name: fsPath });
+    const spawned = await run(["--dry-run", path], { workspace, path });
 
     if (spawned.isErr())
     {
@@ -162,8 +170,12 @@ export async function analyze(file: Uri, workspace: WorkspaceFolder)
     }
 
     const parsed = await spawned.value.parsed;
+    const result = await spawned.value.result;
 
-    if (parsed.isErr())
+    if (parsed.isErr() && result.isOk())
+    {
+        return err(result.value);
+    } else if (parsed.isErr())
     {
         return err(parsed.error);
     }

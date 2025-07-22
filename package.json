@@ -1,5 +1,5 @@
 {
-    "name": "behave-runner",
+    "name": "behave",
     "publisher": "SimplyTest",
     "description": "Test Runner support for Behave",
     "displayName": "Behave",
@@ -25,11 +25,49 @@
         "onStartupFinished"
     ],
     "main": "./out/bundle",
-    "contributes": {},
+    "contributes": {
+        "commands": [
+            {
+                "command": "behave.refresh",
+                "title": "Behave: Force Refresh File"
+            },
+            {
+                "command": "behave.discover",
+                "title": "Behave: Discover All Tests"
+            }
+        ],
+        "configuration": [
+            {
+                "title": "behave",
+                "properties": {
+                    "behave.allowedFiles": {
+                        "type": "string",
+                        "default": "**/*.feature",
+                        "description": "A glob-pattern matching the allowed file-types"
+                    },
+                    "behave.autoDiscover": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Whether or not to discover all tests on startup"
+                    },
+                    "behave.arguments": {
+                        "type": "array",
+                        "items": {
+                            "type": [
+                                "string"
+                            ]
+                        },
+                        "default": [],
+                        "description": "Additional command line arguments to pass to behave"
+                    }
+                }
+            }
+        ]
+    },
     "scripts": {
         "esbuild": "esbuild ./src/extension.ts --bundle --external:vscode --outfile=out/bundle.js --format=cjs --platform=node",
-        "compile": "pnpm run esbuild --sourcemap",
-        "prepublish": "pnpm run check-ts && pnpm run lint && pnpm run esbuild --minify",
+        "compile": "pnpm run check-ts && pnpm run lint && pnpm run esbuild --sourcemap",
+        "prepublish": "pnpm run compile --minify",
         "lint": "eslint src",
         "check-ts": "tsc --noEmit",
         "watch": "concurrently 'pnpm:watch:*'",
@@ -52,6 +90,7 @@
     },
     "dependencies": {
         "execa": "^9.6.0",
+        "minimatch": "^10.0.3",
         "neverthrow": "^8.2.0",
         "regexp.escape": "^2.0.1"
     },

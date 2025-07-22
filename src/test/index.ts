@@ -10,7 +10,6 @@ import {
     TestRunProfileKind,
     TestRunRequest,
     tests,
-    Uri,
     WorkspaceFolder,
 } from "vscode";
 import { traverseTree } from "../behave/parser";
@@ -22,8 +21,8 @@ import * as behave from "../behave";
 function createItem(controller: TestController, item: Item)
 {
     const rtn = controller.createTestItem(item.location.bare, item.name, item.location.full);
+    const position = new Position(item.location.line, item.location.line + 1);
 
-    const position = new Position(item.location.line - 1, item.location.line);
     rtn.range = new Range(position, position);
 
     return rtn;
@@ -166,20 +165,20 @@ async function runHandler(
                 testRun.skipped(parent);
         }
     };
-    result.value.forEach(item => traverseTree(item, visitor));
+    traverseTree(result.value, visitor);
 
     testRun.end();
 }
 
 function init(controller: TestController)
 {
-    const analyze = async (file: Uri, workspace: WorkspaceFolder) =>
+    const analyze = async (path: string, workspace: WorkspaceFolder, options?: behave.AnalyzeOptions) =>
     {
-        const parsed = await behave.analyze(file, workspace);
+        const parsed = await behave.analyze(path, workspace, options);
 
         if (parsed.isErr())
         {
-            LOG.toastError({ message: "Could not analyze file", detail: [parsed.error, workspace, file] });
+            LOG.toastError({ message: "Could not analyze file", detail: [parsed.error, path, workspace.name] });
             return;
         }
 
@@ -194,8 +193,7 @@ function init(controller: TestController)
 
             return rtn;
         };
-
-        parsed.value.map(item => traverseTree(item, visitor)).forEach(controller.items.add);
+        traverseTree(parsed.value, visitor).forEach(controller.items.add);
     };
 
     const createProfiles = (workspace: WorkspaceFolder) =>
@@ -212,4 +210,4 @@ function init(controller: TestController)
     return { ...controller, analyze, createProfiles };
 }
 
-export const controller = init(tests.createTestController("behave-runner", "Behave"));
+export const controller = init(tests.createTestController("behave", "Behave"));

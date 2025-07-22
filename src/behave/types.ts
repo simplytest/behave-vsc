@@ -2,7 +2,6 @@ import { Uri } from "vscode";
 
 export enum Status
 {
-    // TODO: There are  more status values!
     UNTESTED = "untested",
     SKIPPED = "skipped",
     PASSED = "passed",
@@ -29,7 +28,7 @@ export interface Result
 {
     status: Status;
     duration: number;
-    error_message?: string[]; // TODO: Allow typings to detect that this exists if status is failed
+    error_message?: string[];
 }
 
 export interface Match
@@ -46,7 +45,9 @@ interface Common
 
 export interface Step extends Common
 {
+    match?: Match;
     result?: Result;
+    step_type: string;
 }
 
 export interface Scenario extends Common
@@ -63,5 +64,7 @@ export interface Feature extends Common
     elements: Scenario[];
 }
 
-export type Item = Feature | Scenario | Step;
-export type Node = Item | Result | Match;
+export type Tree = Feature[];
+
+export type Item = Step | Scenario | Feature;
+export type Locatable = Match | Step | Scenario | Feature;

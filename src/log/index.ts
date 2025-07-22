@@ -12,7 +12,7 @@ type ToastFunction<T extends string> = (message: string, ...items: T[]) => Thena
 
 function toastify<T extends string>(original: LoggerFunction, toast: ToastFunction<T>)
 {
-    const unwrap = <T>(value?: T[]) => value || [];
+    const unwrap = <T>(value?: T[]) => value ?? [];
     const concat = (value?: any[]) => unwrap(value).reduce((prev, curr) => [...prev, "\n", curr], value ? ["\n"] : []);
 
     return ({ message, detail, actions }: ToastParams<T>) =>
