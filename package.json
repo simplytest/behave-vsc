@@ -73,7 +73,7 @@
         "watch": "concurrently 'pnpm:watch:*'",
         "watch:esbuild": "node esbuild.js --watch",
         "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-        "package": "vsce package --baseImagesUrl https://raw.githubusercontent.com/simplytest/behave-vsc/main/"
+        "package": "pnpm run prepublish && vsce package --baseImagesUrl https://raw.githubusercontent.com/simplytest/behave-vsc/main/"
     },
     "devDependencies": {
         "@types/node": "^24.0.15",
