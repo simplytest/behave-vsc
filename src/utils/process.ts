@@ -20,6 +20,8 @@ interface Options
 
 export function spawn(executable: string, args: string[], options?: Options)
 {
+    // TODO: Switch to VSCode Terminal with ShellIntegration
+
     const { signal, abort } = new AbortController();
     const process = execa(executable, args, { ...options, reject: false, cancelSignal: signal });
 

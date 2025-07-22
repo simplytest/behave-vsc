@@ -13,7 +13,7 @@ import {
     TestTag,
     WorkspaceFolder,
 } from "vscode";
-import { iterateItems, traverseTree } from "../behave/parser";
+import { traverseTree } from "../behave/parser";
 import { Item, Keyword, Status } from "../behave/types";
 import { LOG } from "../log";
 import { settings } from "../settings";
@@ -52,13 +52,9 @@ function makeTestMessage(item: Item, parent: TestItem, run: TestRun): TestMessag
 
     if (!("result" in item))
     {
-        return settings.discoverSteps()
-            ? [rtn]
-            : [...iterateItems(item)]
-                .filter(x => x !== item)
-                .map(item => makeTestMessage(item, parent, run))
-                .flat()
-                .filter(x => x.message);
+        return !settings.discoverSteps() && "steps" in item
+            ? item.steps.map(item => makeTestMessage(item, parent, run)).flat().filter(x => x.message)
+            : [rtn];
     }
 
     if (!item.result)
@@ -166,6 +162,11 @@ async function runHandler(
 
     const visitor = (item: Item) =>
     {
+        if (!settings.discoverSteps(workspace) && "step_type" in item)
+        {
+            return;
+        }
+
         const status = "status" in item ? item.status : item.result?.status;
 
         if (!status)

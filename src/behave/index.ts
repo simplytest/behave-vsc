@@ -32,6 +32,7 @@ function makeArguments(args: string[], root: WorkspaceFolder, output: string)
         "json",
         "--no-junit",
         "--no-summary",
+        "--no-capture",
         "--outfile",
         output,
         ...args,
