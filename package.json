@@ -94,6 +94,7 @@
         "neverthrow": "^8.2.0",
         "regexp.escape": "^2.0.1"
     },
+    "packageManager": "pnpm@10.13.1",
     "vsce": {
         "dependencies": false
     }
