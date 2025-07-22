@@ -12,6 +12,7 @@ export enum Keyword
 {
     FEATURE = "Feature",
     SCENARIO = "Scenario",
+    OUTLINE = "Scenario Outline",
     WHEN = "When",
     THEN = "Then",
 }

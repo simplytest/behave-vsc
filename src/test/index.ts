@@ -10,11 +10,13 @@ import {
     TestRunProfileKind,
     TestRunRequest,
     tests,
+    TestTag,
     WorkspaceFolder,
 } from "vscode";
-import { traverseTree } from "../behave/parser";
-import { Item, Status } from "../behave/types";
+import { iterateItems, traverseTree } from "../behave/parser";
+import { Item, Keyword, Status } from "../behave/types";
 import { LOG } from "../log";
+import { settings } from "../settings";
 
 import * as behave from "../behave";
 
@@ -23,6 +25,8 @@ function createItem(controller: TestController, item: Item)
     const rtn = controller.createTestItem(item.location.bare, item.name, item.location.full);
     const position = new Position(item.location.line, item.location.line + 1);
 
+    // TODO: Also add behave-tags (!)
+    rtn.tags = [new TestTag(item.keyword)];
     rtn.range = new Range(position, position);
 
     return rtn;
@@ -48,7 +52,13 @@ function makeTestMessage(item: Item, parent: TestItem, run: TestRun): TestMessag
 
     if (!("result" in item))
     {
-        return rtn;
+        return settings.discoverSteps()
+            ? [rtn]
+            : [...iterateItems(item)]
+                .filter(x => x !== item)
+                .map(item => makeTestMessage(item, parent, run))
+                .flat()
+                .filter(x => x.message);
     }
 
     if (!item.result)
@@ -86,6 +96,18 @@ function makeTestMessage(item: Item, parent: TestItem, run: TestRun): TestMessag
     return [rtn];
 }
 
+function findResponsible(item: TestItem)
+{
+    const allowed: string[] = [Keyword.FEATURE, Keyword.OUTLINE, Keyword.OUTLINE];
+
+    if (item.parent && !item.tags.find(x => allowed.includes(x.id)))
+    {
+        return findResponsible(item.parent);
+    }
+
+    return item;
+}
+
 async function runHandler(
     controller: TestController,
     workspace: WorkspaceFolder,
@@ -93,7 +115,10 @@ async function runHandler(
     token: CancellationToken,
 )
 {
-    const { include, exclude, profile } = request;
+    const { profile } = request;
+
+    const exclude = request.exclude?.map(findResponsible);
+    const include = request.include?.map(findResponsible);
 
     if (!profile)
     {
@@ -194,6 +219,11 @@ function init(controller: TestController)
 
         const visitor = (item: Item, parent?: TestItem) =>
         {
+            if (!settings.discoverSteps(workspace) && "step_type" in item)
+            {
+                return;
+            }
+
             const rtn = createItem(controller, item);
 
             if (parent)
@@ -203,7 +233,7 @@ function init(controller: TestController)
 
             return rtn;
         };
-        traverseTree(parsed.value, visitor).forEach(controller.items.add);
+        traverseTree(parsed.value, visitor).filter(x => !!x).forEach(controller.items.add);
     };
 
     const createProfiles = (workspace: WorkspaceFolder) =>

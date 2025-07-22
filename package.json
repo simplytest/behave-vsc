@@ -50,6 +50,11 @@
                         "default": false,
                         "description": "Whether or not to discover all tests on startup"
                     },
+                    "behave.discoverSteps": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Whether or not to discover individual steps"
+                    },
                     "behave.arguments": {
                         "type": "array",
                         "items": {

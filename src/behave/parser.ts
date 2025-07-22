@@ -63,7 +63,7 @@ export async function parseFile(path: string, workspace: WorkspaceFolder)
     return ok(parse(data.value, workspace));
 }
 
-export function traverseTree<T>(tree: Tree, visitor: (node: Item, parent?: T) => T)
+export function traverseTree<T>(tree: Tree, visitor: (node: Item, parent?: T) => T | undefined)
 {
     const visit = (item: Item, parent?: T) =>
     {

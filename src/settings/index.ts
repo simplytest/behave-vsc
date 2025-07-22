@@ -13,6 +13,7 @@ function init()
     return {
         expectedRegex: setting<string[]>("expectedRegex", ["Expected: (.*)[\\s\\S]*but: was (.*)"]),
         allowedFiles: setting("allowedFiles", "**/*.feature"),
+        discoverSteps: setting("discoverSteps", false),
         autoDiscover: setting("autoDiscover", false),
         arguments: setting<string[]>("arguments", []),
     };
