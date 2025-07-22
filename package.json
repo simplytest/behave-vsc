@@ -59,6 +59,18 @@
                         },
                         "default": [],
                         "description": "Additional command line arguments to pass to behave"
+                    },
+                    "behave.expectedRegex": {
+                        "type": "array",
+                        "items": {
+                            "type": [
+                                "string"
+                            ]
+                        },
+                        "default": [
+                            "Expected: (.*)[\\s\\S]*but: was (.*)"
+                        ],
+                        "description": "Regular Expressions to match failed runs against. Should have two groups, first for expected result, the other for the actual result"
                     }
                 }
             }

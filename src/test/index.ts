@@ -42,7 +42,7 @@ function flatItems(controller: TestController)
     return rtn;
 }
 
-function makeTestMessage(item: Item, parent: TestItem, run: TestRun)
+function makeTestMessage(item: Item, parent: TestItem, run: TestRun): TestMessage[]
 {
     const rtn = new TestMessage("");
 
@@ -53,27 +53,37 @@ function makeTestMessage(item: Item, parent: TestItem, run: TestRun)
 
     if (!item.result)
     {
-        return rtn;
+        return [rtn];
     }
 
-    if (!item.result.error_message || item.result.error_message.length === 0)
+    const { error_message } = item.result;
+
+    if (!error_message || error_message.length === 0)
     {
-        return rtn;
+        return [rtn];
     }
 
-    rtn.message = item.result.error_message.at(-1)!;
-    run.appendOutput(item.result.error_message.join("\r\n"), undefined, parent);
+    const wholeError = error_message.join("\r\n");
 
-    const regex = /([^\s]*)\s!=\s(.*)$/;
-    const match = rtn.message.match(regex);
+    rtn.message = error_message.at(-1)!;
+    run.appendOutput(wholeError, undefined, parent);
 
-    if (match)
+    for (const regex of settings.expectedRegex())
     {
+        const match = wholeError.match(regex);
+
+        if (!match)
+        {
+            continue;
+        }
+
         rtn.expectedOutput = match[1];
         rtn.actualOutput = match[2];
+
+        break;
     }
 
-    return rtn;
+    return [rtn];
 }
 
 async function runHandler(
