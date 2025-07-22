@@ -34,6 +34,6 @@ The following commands are available:
 
 <div align="center">
 
-<img height="100" src="data/banner.png" alt="Banner" />
+<img height="100" src="./data/banner.png" alt="Banner" />
 
 </div>
