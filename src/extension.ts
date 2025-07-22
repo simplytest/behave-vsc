@@ -26,6 +26,21 @@ function onFile(path: string, root: WorkspaceFolder, options?: FileOptions)
     controller.analyze(path, root, { ...options });
 }
 
+function onDelete(path: Uri)
+{
+    const { fsPath } = path;
+
+    for (const [id, item] of controller.items)
+    {
+        if (!item.uri?.fsPath.startsWith(fsPath))
+        {
+            continue;
+        }
+
+        controller.items.delete(id);
+    }
+}
+
 function onDocument(document?: TextDocument, options?: FileOptions)
 {
     if (!document)
@@ -49,11 +64,21 @@ function onRefresh()
     return onDocument(window.activeTextEditor?.document, { ignoreGlob: true, skipCache: true });
 }
 
-async function onDiscover(root = workspace.workspaceFolders?.[0])
+interface DiscoverOptions
+{
+    invalidate?: boolean;
+}
+
+async function onDiscover(root = workspace.workspaceFolders?.[0], options?: DiscoverOptions)
 {
     if (!root)
     {
         return;
+    }
+
+    if (options?.invalidate)
+    {
+        controller.items.forEach(({ id }) => controller.items.delete(id));
     }
 
     for await (const file of glob(settings.allowedFiles(root), { cwd: root.uri.fsPath }))
@@ -69,7 +94,7 @@ function onWorkspaces(workspaces?: readonly WorkspaceFolder[])
         return;
     }
 
-    workspaces.filter(settings.autoDiscover).forEach(onDiscover);
+    workspaces.filter(settings.autoDiscover).forEach(root => onDiscover(root));
 
     return workspaces.map(workspace => controller.createProfiles(workspace)).flat();
 }
@@ -80,7 +105,7 @@ export function activate(context: ExtensionContext)
 
     context.subscriptions.push(
         commands.registerCommand("behave.refresh", onRefresh),
-        commands.registerCommand("behave.discover", onDiscover),
+        commands.registerCommand("behave.discover", () => onDiscover(undefined, { invalidate: true })),
     );
 
     onWorkspaces(workspace.workspaceFolders);
@@ -96,7 +121,10 @@ export function activate(context: ExtensionContext)
 
     context.subscriptions.push(
         workspace.onDidSaveTextDocument(onDocument),
+        workspace.onDidDeleteFiles(({ files }) => files.forEach(onDelete)),
     );
+
+    // TODO: Handle workspace-deletion
 
     context.subscriptions.push(
         workspace.onDidChangeWorkspaceFolders(({ added }) =>
