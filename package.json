@@ -36,6 +36,11 @@
                 "title": "Behave: Discover All Tests"
             }
         ],
+        "taskDefinitions": [
+            {
+                "type": "behave"
+            }
+        ],
         "configuration": [
             {
                 "title": "behave",

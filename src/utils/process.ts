@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { err, ok, Result as Res } from "neverthrow";
+import { err, ok } from "neverthrow";
 
 export enum Error
 {
@@ -18,24 +18,14 @@ interface Options
     cwd?: string;
 }
 
-export function spawn(executable: string, args: string[], options?: Options)
+export async function spawn(executable: string, args: string[], options?: Options)
 {
-    // TODO: Switch to VSCode Terminal with ShellIntegration
+    const { exitCode, stdout, stderr } = await execa(executable, args, { ...options, reject: false });
 
-    const { signal, abort } = new AbortController();
-    const process = execa(executable, args, { ...options, reject: false, cancelSignal: signal });
-
-    const result = new Promise<Res<Result, Error>>(async (resolve) =>
+    if (!exitCode)
     {
-        const { exitCode, stdout, stderr } = await process;
+        return err(Error.FailedToStart);
+    }
 
-        if (!exitCode)
-        {
-            return resolve(err(Error.FailedToStart));
-        }
-
-        return resolve(ok({ status: exitCode, stdout, stderr } as Result));
-    });
-
-    return { result, abort };
+    return ok({ status: exitCode, stdout, stderr } as Result);
 }

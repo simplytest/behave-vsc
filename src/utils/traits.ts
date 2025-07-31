@@ -1,3 +1,5 @@
+type Pick<T, K extends keyof T> = Record<K, T[K]>;
+
 type DeepReplaceArray<T, K extends string, R> = T extends (infer U)[] ? DeepReplace<U, K, R>[] : never;
 
 type DeepReplaceObject<T, K extends string, R, Replaced = Replace<T, K, R>> = {

@@ -1,151 +1,80 @@
 import { err, ok, Result } from "neverthrow";
-import { debug as debugging, DebugConfiguration, DebugSession, Disposable, WorkspaceFolder } from "vscode";
-import { cachedTempFile, withPrevious } from "../cache";
+import {
+    debug as debugging,
+    DebugConfiguration,
+    DebugSession,
+    ProcessExecution,
+    Task,
+    tasks,
+    WorkspaceFolder,
+} from "vscode";
+import { fileCache } from "../cache";
 import { LOG } from "../log";
 import { settings } from "../settings";
-import { dispose } from "../utils/disposable";
-import { parseFile } from "./parser";
+import { disposables } from "../utils/disposable";
+import { fromPromise } from "../utils/neverthrow";
+import { spawn } from "../utils/process";
+import { externalPromise } from "../utils/promise";
+import { getExecutable } from "../utils/python";
+import { parse } from "./parser";
 import { Tree } from "./types";
 
-import * as utils from "../utils/process";
-import * as python from "../utils/python";
-
-export function spawn(args: string[], workspace: WorkspaceFolder)
+export interface CommandOptions
 {
-    const executable = python.getExecutable(workspace);
+    output?: string;
+    include?: string[];
+
+    dry?: boolean;
+    capture?: boolean;
+    skipPython?: boolean;
+}
+
+export function buildCommand(workspace: WorkspaceFolder, options?: CommandOptions)
+{
+    const args: string[] = [];
+
+    if (!options?.skipPython)
+    {
+        args.push("-m", "behave");
+    }
+
+    if (!options?.capture)
+    {
+        args.push("--no-capture");
+    }
+
+    if (options?.output)
+    {
+        args.push("--outfile", options.output, "--format", "json");
+    }
+
+    if (options?.dry)
+    {
+        args.push("--dry-run", "--show-timings", "--show-source", "--no-junit", "--no-summary");
+    } else
+    {
+        args.push(...settings.arguments(workspace));
+    }
+
+    if (options?.include)
+    {
+        args.push(...options.include);
+    }
+
+    const executable = options?.skipPython ? ok("") : getExecutable(workspace);
 
     if (executable.isErr())
     {
         return err(executable.error);
     }
 
-    return ok(utils.spawn(executable.value, ["-m", "behave", ...args], { cwd: workspace.uri.fsPath }));
-}
-
-function makeArguments(args: string[], root: WorkspaceFolder, output: string)
-{
-    return [
-        "--show-timings",
-        "--show-source",
-        "--quiet",
-        "--format",
-        "json",
-        "--no-junit",
-        "--no-summary",
-        "--no-capture",
-        "--outfile",
-        output,
-        ...args,
-        ...settings.arguments(root),
-    ];
-}
-
-export interface ExecutionOptions
-{
-    workspace: WorkspaceFolder;
-    path?: string;
-}
-
-export async function run(args: string[], { workspace, path }: ExecutionOptions)
-{
-    const output = await cachedTempFile(workspace, path, { invalidate: true });
-
-    if (output.isErr())
-    {
-        return err(output.error);
-    }
-
-    const spawned = spawn(makeArguments(args, workspace, output.value), workspace);
-
-    if (spawned.isErr())
-    {
-        return err(spawned.error);
-    }
-
-    const { result, abort } = spawned.value;
-
-    const parsed = new Promise<Result<Tree, unknown>>(resolve =>
-        result.then(async () => resolve(await parseFile(output.value, workspace)))
-    );
-
-    return ok({ result, parsed, abort });
+    return ok({ executable: executable.value, args });
 }
 
 export enum Error
 {
-    FailedToStartDebugger,
-}
-
-export async function debug(args: string[], { workspace, path }: ExecutionOptions)
-{
-    const output = await cachedTempFile(workspace, path, { invalidate: true });
-
-    if (output.isErr())
-    {
-        return err(output.error);
-    }
-
-    const config: DebugConfiguration = {
-        name: "Behave",
-
-        request: "launch",
-        type: "python",
-
-        module: "behave",
-        args: makeArguments(args, workspace, output.value),
-        cwd: workspace.uri.fsPath,
-    };
-
-    const disposables: Disposable[] = [];
-
-    let resolveSession = (_: DebugSession) =>
-    {
-        LOG.panic("Session was resolved before promise was created");
-    };
-    const sessionFuture = new Promise<DebugSession>(resolve => resolveSession = resolve);
-
-    debugging.onDidStartDebugSession(
-        async (session) =>
-        {
-            resolveSession(session);
-            dispose(disposables);
-        },
-        undefined,
-        disposables,
-    );
-
-    if (!await debugging.startDebugging(workspace, config))
-    {
-        LOG.toastError({ message: "Failed to start debugging" });
-        return err(Error.FailedToStartDebugger);
-    }
-
-    const session = await sessionFuture;
-
-    let resolveParsed = (_: Result<Tree, unknown>) =>
-    {
-        LOG.panic("Results were resolved before promise was created");
-    };
-    const parsed = new Promise<Result<Tree, unknown>>(resolve => resolveParsed = resolve);
-
-    debugging.onDidTerminateDebugSession(
-        async (terminated) =>
-        {
-            if (terminated !== session)
-            {
-                return;
-            }
-
-            resolveParsed(await parseFile(output.value, workspace));
-            dispose(disposables);
-        },
-        undefined,
-        disposables,
-    );
-
-    const abort = () => debugging.stopDebugging(session);
-
-    return ok({ abort, parsed });
+    BadStatus,
+    FailedToStart,
 }
 
 export interface AnalyzeOptions
@@ -153,33 +82,154 @@ export interface AnalyzeOptions
     skipCache?: boolean;
 }
 
-export async function analyze(path: string, workspace: WorkspaceFolder, options?: AnalyzeOptions)
+export async function analyze(file: string, workspace: WorkspaceFolder, options?: AnalyzeOptions)
 {
-    const previous = options?.skipCache ? err() : await withPrevious(path, workspace, parseFile);
+    const previous = options?.skipCache ? err() : await fileCache(file, workspace, { checkExpired: true });
 
     if (previous.isOk())
     {
-        LOG.debug("Reusing previous result", path, workspace.name);
-        return ok(previous.value);
+        LOG.debug("Using previous result", file);
+        return parse(previous.value.path, workspace);
     }
 
-    const spawned = await run(["--dry-run", path], { workspace, path });
+    const cache = await fileCache(file, workspace);
 
-    if (spawned.isErr())
+    if (cache.isErr())
     {
-        return err(spawned.error);
+        return err(cache.error);
     }
 
-    const parsed = await spawned.value.parsed;
-    const result = await spawned.value.result;
+    const command = buildCommand(workspace, { dry: true, output: cache.value.path });
 
-    if (parsed.isErr() && result.isOk())
+    if (command.isErr())
     {
-        return err(result.value);
-    } else if (parsed.isErr())
-    {
-        return err(parsed.error);
+        return err(command.error);
     }
 
-    return ok(parsed.value);
+    const { executable, args } = command.value;
+    const result = await spawn(executable, args, { cwd: workspace.uri.fsPath });
+
+    if (result.isErr())
+    {
+        return err(result.error);
+    }
+
+    const { status } = result.value;
+
+    if (status !== 0)
+    {
+        return err(Error.BadStatus);
+    }
+
+    return parse(cache.value.path, workspace);
+}
+
+export type RunOptions = Pick<CommandOptions, "include">;
+
+export async function run(workspace: WorkspaceFolder, options: RunOptions)
+{
+    const cache = await fileCache(undefined, workspace, {});
+
+    if (cache.isErr())
+    {
+        return err(cache.error);
+    }
+
+    const { track, dispose } = disposables();
+    track(cache.value.disposable);
+
+    const { path } = cache.value;
+    const command = buildCommand(workspace, { ...options, output: path }).orTee(dispose);
+
+    if (command.isErr())
+    {
+        return err(command.error);
+    }
+
+    const { executable, args } = command.value;
+
+    const process = new ProcessExecution(executable, args, { cwd: workspace.uri.fsPath });
+    const task = new Task({ type: "behave" }, workspace, "Behave", "Behave", process);
+
+    const taskExecution = (await fromPromise(tasks.executeTask(task))).orTee(dispose);
+
+    if (taskExecution.isErr())
+    {
+        return err(taskExecution.error);
+    }
+
+    const { promise, resolve } = externalPromise<Result<Tree, unknown>>();
+
+    track(tasks.onDidEndTaskProcess(async ({ execution }) =>
+    {
+        if (execution !== taskExecution.value)
+        {
+            return;
+        }
+
+        dispose(resolve(await parse(path, workspace)));
+    }));
+
+    return { result: promise, abort: taskExecution.value.terminate };
+}
+
+export async function debug(workspace: WorkspaceFolder, options: RunOptions)
+{
+    const cache = await fileCache(undefined, workspace, {});
+
+    if (cache.isErr())
+    {
+        return err(cache.error);
+    }
+
+    const { track, dispose } = disposables();
+    track(cache.value.disposable);
+
+    const { path } = cache.value;
+    const command = buildCommand(workspace, { ...options, output: path, skipPython: true }).orTee(dispose);
+
+    if (command.isErr())
+    {
+        return err(command.error);
+    }
+
+    const { args } = command.value;
+
+    const configuration: DebugConfiguration = {
+        name: "Behave",
+
+        type: "python",
+        module: "behave",
+        request: "Launch",
+
+        args,
+        cwd: workspace.uri.fsPath,
+    };
+
+    const { promise: sessionFuture, resolve: resolveSession } = externalPromise<DebugSession>();
+
+    track(debugging.onDidStartDebugSession(session =>
+    {
+        resolveSession(session);
+    }));
+
+    if (!await debugging.startDebugging(workspace, configuration))
+    {
+        return dispose(err(Error.FailedToStart));
+    }
+
+    const debugSession = await sessionFuture;
+    const { promise: parsed, resolve: resolveParsed } = externalPromise<Result<Tree, unknown>>();
+
+    track(debugging.onDidTerminateDebugSession(async (session) =>
+    {
+        if (session !== debugSession)
+        {
+            return;
+        }
+
+        dispose(resolveParsed(await parse(path, workspace)));
+    }));
+
+    return { parsed, abort: () => debugging.stopDebugging(debugSession) };
 }

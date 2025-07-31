@@ -3,87 +3,71 @@ import { mkdir, rm, stat } from "fs/promises";
 import { err, ok } from "neverthrow";
 import { tmpdir } from "os";
 import { join } from "path";
-import { WorkspaceFolder } from "vscode";
+import { Disposable, WorkspaceFolder } from "vscode";
 import { fromPromise } from "../utils/neverthrow";
 
-export function base64url(input: string)
+export function encode(value: string)
 {
-    return Buffer.from(input).toString("base64url");
+    return Buffer.from(value).toString("base64url");
 }
 
 export async function workspaceCache(workspace: WorkspaceFolder)
 {
-    const name = base64url(workspace.uri.fsPath);
-    const path = join(tmpdir(), "behave", name);
+    const path = join(tmpdir(), "behave-vsc", encode(workspace.uri.fsPath));
+    const prom = await fromPromise(mkdir(path, { recursive: true }));
 
-    const result = await fromPromise(mkdir(path, { recursive: true }));
-
-    if (result.isErr())
+    if (prom.isErr())
     {
-        return err(result.error);
+        return err(prom.error);
     }
 
     return ok(path);
 }
 
-interface TempFileOptions
+interface FileCacheOptions
 {
-    invalidate?: boolean;
-}
-
-export async function cachedTempFile(workspace: WorkspaceFolder, name: string = randomUUID(), options?: TempFileOptions)
-{
-    const directory = await workspaceCache(workspace);
-
-    if (directory.isErr())
-    {
-        return err(directory.error);
-    }
-
-    const path = join(directory.value, base64url(name));
-
-    if (options?.invalidate)
-    {
-        await fromPromise(rm(path));
-    }
-
-    return ok(path);
+    checkExpired?: boolean;
 }
 
 export enum Error
 {
-    Outdated,
+    Expired,
 }
 
-type Consumer<T> = (path: string, workspace: WorkspaceFolder) => T;
-
-export async function withPrevious<T>(path: string, workspace: WorkspaceFolder, consumer: Consumer<T>)
+export async function fileCache(file: string = randomUUID(), workspace: WorkspaceFolder, options?: FileCacheOptions)
 {
-    const original = await fromPromise(stat(path));
+    const root = await workspaceCache(workspace);
 
-    if (original.isErr())
+    if (root.isErr())
     {
-        return err(original.error);
+        return err(root.error);
     }
 
-    const outputFile = await cachedTempFile(workspace, path);
+    const path = join(root.value, encode(file));
 
-    if (outputFile.isErr())
+    if (options?.checkExpired && await isExpired(file, path))
     {
-        return err(outputFile.error);
+        return err(Error.Expired);
     }
 
-    const cached = await fromPromise(stat(outputFile.value));
+    return ok({ path, disposable: new Disposable(() => fromPromise(rm(path))) });
+}
 
-    if (cached.isErr())
+async function isExpired(original: string, cached: string)
+{
+    const oStat = await fromPromise(stat(original));
+
+    if (oStat.isErr())
     {
-        return err(cached.error);
+        return true;
     }
 
-    if (cached.value.mtime < original.value.mtime)
+    const cStat = await fromPromise(stat(cached));
+
+    if (cStat.isErr())
     {
-        return err(Error.Outdated);
+        return true;
     }
 
-    return consumer(outputFile.value, workspace);
+    return oStat.value.mtime > cStat.value.mtime;
 }
