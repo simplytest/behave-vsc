@@ -1,22 +1,14 @@
 import { workspace, WorkspaceFolder } from "vscode";
 
-function init()
+function setting<T>(name: string, fallback: T)
 {
-    const setting = <T>(name: string, defaultValue: T) =>
-    {
-        return (root?: WorkspaceFolder) =>
-        {
-            return workspace.getConfiguration("behave", root).get<T>(name, defaultValue);
-        };
-    };
-
-    return {
-        expectedRegex: setting<string[]>("expectedRegex", ["Expected: (.*)[\\s\\S]*but: was (.*)"]),
-        allowedFiles: setting("allowedFiles", "**/*.feature"),
-        discoverSteps: setting("discoverSteps", false),
-        autoDiscover: setting("autoDiscover", false),
-        arguments: setting<string[]>("arguments", []),
-    };
+    return (root?: WorkspaceFolder) => workspace.getConfiguration("behave", root).get<T>(name, fallback);
 }
 
-export const settings = init();
+export const settings = {
+    arguments: setting<string[]>("arguments", []),
+    allowedFiles: setting<string>("allowedFiles", "**/*.feature"),
+    discoverSteps: setting<boolean>("discoverSteps", false),
+    autoDiscover: setting<boolean>("autoDiscover", true),
+    diffRegex: setting<string[]>("diffRegex", ["Expected: (.*)[\\s\\S]*but: was (.*)"]),
+};

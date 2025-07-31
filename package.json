@@ -65,7 +65,7 @@
                         "default": [],
                         "description": "Additional command line arguments to pass to behave"
                     },
-                    "behave.expectedRegex": {
+                    "behave.diffRegex": {
                         "type": "array",
                         "items": {
                             "type": [
