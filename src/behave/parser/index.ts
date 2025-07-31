@@ -1,9 +1,9 @@
 import { readFile } from "fs/promises";
 import { err, ok } from "neverthrow";
 import { Uri, WorkspaceFolder } from "vscode";
-import { fromPromise } from "../utils/neverthrow";
-import { DeepReplace } from "../utils/traits";
-import { Item, Keyword, Locatable, Tree } from "./types";
+import { fromPromise } from "../../utils/neverthrow";
+import { DeepReplace } from "../../utils/traits";
+import { Item, Keyword, Locatable, Tree } from "../types";
 
 type Raw<T> = DeepReplace<T, "location", string>;
 
@@ -46,12 +46,7 @@ function updateProperties<T extends Locatable>(workspace: WorkspaceFolder, item:
     return { ...item, ...changes.reduce((prev, current) => ({ ...prev, ...current }), {}) } as T;
 }
 
-export function parse(data: string, workspace: WorkspaceFolder)
-{
-    return (JSON.parse(data) as Raw<Tree>).map(feature => updateProperties(workspace, feature));
-}
-
-export async function parseFile(path: string, workspace: WorkspaceFolder)
+export async function parse(path: string, workspace: WorkspaceFolder)
 {
     const data = await fromPromise(readFile(path, "utf8"));
 
@@ -60,50 +55,7 @@ export async function parseFile(path: string, workspace: WorkspaceFolder)
         return err(data.error);
     }
 
-    return ok(parse(data.value, workspace));
-}
+    const parsed: Raw<Tree> = JSON.parse(data.value);
 
-export function traverseTree<T>(tree: Tree, visitor: (node: Item, parent?: T) => T | undefined)
-{
-    const visit = (item: Item, parent?: T) =>
-    {
-        const rtn = visitor(item, parent);
-
-        if ("elements" in item)
-        {
-            item.elements.forEach(x => visit(x, rtn));
-        }
-
-        if ("steps" in item)
-        {
-            item.steps.forEach(x => visit(x, rtn));
-        }
-
-        return rtn;
-    };
-
-    return tree.map(item => visit(item));
-}
-
-export function* iterateItems(item: Item | Item[]): Generator<Item>
-{
-    if ("elements" in item)
-    {
-        return yield* iterateItems(item.elements);
-    }
-
-    if ("steps" in item)
-    {
-        return yield* iterateItems(item.steps);
-    }
-
-    if (!Array.isArray(item))
-    {
-        return yield item;
-    }
-
-    for (const node of item)
-    {
-        yield* iterateItems(node);
-    }
+    return ok(parsed.map(feature => updateProperties(workspace, feature)));
 }
