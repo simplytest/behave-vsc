@@ -1,4 +1,4 @@
-import escape from "regexp.escape";
+import { randomUUID } from "crypto";
 import {
     CancellationToken,
     Position,
@@ -13,160 +13,147 @@ import {
     TestTag,
     WorkspaceFolder,
 } from "vscode";
-import { traverseTree } from "../behave/parser";
-import { Item, Keyword, Status } from "../behave/types";
+import { analyze, debug, run, RunOptions } from "../behave";
+import { traverseTree } from "../behave/parser/utils";
+import { Item, Status } from "../behave/types";
 import { LOG } from "../log";
 import { settings } from "../settings";
+import { disposables } from "../utils/disposable";
 
-import * as behave from "../behave";
+// TODO: Come up with clever way to store multiple bare locations in Test-Item (for "run-all" outlines) and also make it discoverable from the final result in the runHandler!
 
-function createItem(controller: TestController, item: Item)
+function createTestItem(controller: TestController, item: Item)
 {
     const rtn = controller.createTestItem(item.location.bare, item.name, item.location.full);
-    const position = new Position(item.location.line, item.location.line + 1);
 
-    // TODO: Also add behave-tags (!)
-    rtn.tags = [new TestTag(item.keyword)];
+    const position = new Position(item.location.line, item.location.line + 1);
+    const tags: TestTag[] = [];
+
+    if ("tags" in item)
+    {
+        tags.push(...item.tags.map(tag => new TestTag(tag)));
+    }
+
     rtn.range = new Range(position, position);
+    rtn.tags = tags;
 
     return rtn;
 }
 
-function flatItems(controller: TestController)
+function testItems()
 {
-    const rtn = new Map<string, TestItem>();
+    const items = new Map<string, TestItem>();
 
     const visit = (item: TestItem) =>
     {
         item.children.forEach(visit);
-        rtn.set(item.id, item);
+        items.set(item.id, item);
     };
     controller.items.forEach(visit);
 
-    return rtn;
+    return { find: (item: Item) => items.get(item.location.bare) };
 }
 
-function makeTestMessage(item: Item, parent: TestItem, run: TestRun): TestMessage[]
+interface ParsedError
 {
-    const rtn = new TestMessage("");
+    messages: TestMessage[];
+    output: string[];
+}
 
+function parseError(item: Item): ParsedError | undefined
+{
     if (!("result" in item))
     {
-        return !settings.discoverSteps() && "steps" in item
-            ? item.steps.map(item => makeTestMessage(item, parent, run)).flat().filter(x => x.message)
-            : [rtn];
+        if (settings.discoverSteps())
+        {
+            return;
+        }
+
+        if (!("steps" in item))
+        {
+            return;
+        }
+
+        return item.steps.map(parseError).reduce((prev, result) => ({
+            messages: [...prev?.messages ?? [], ...result?.messages ?? []],
+            output: [...prev?.output ?? [], ...result?.output ?? []],
+        }));
     }
 
     if (!item.result)
     {
-        return [rtn];
+        return;
     }
 
     const { error_message } = item.result;
 
     if (!error_message || error_message.length === 0)
     {
-        return [rtn];
+        return;
     }
 
-    const wholeError = error_message.join("\r\n");
+    const whole = error_message.join("\r\n");
+    const message = new TestMessage(whole.at(-1)!);
 
-    rtn.message = error_message.at(-1)!;
-    run.appendOutput(wholeError, undefined, parent);
-
-    for (const regex of settings.expectedRegex())
+    for (const regex of settings.diffRegex())
     {
-        const match = wholeError.match(regex);
+        const match = whole.match(regex);
 
         if (!match)
         {
             continue;
         }
 
-        rtn.expectedOutput = match[1];
-        rtn.actualOutput = match[2];
+        message.expectedOutput = match[1];
+        message.actualOutput = match[2];
 
         break;
     }
 
-    return [rtn];
+    return { messages: [message], output: [whole] };
 }
 
-function findResponsible(item: TestItem)
-{
-    const allowed: string[] = [Keyword.FEATURE, Keyword.OUTLINE, Keyword.OUTLINE];
-
-    if (item.parent && !item.tags.find(x => allowed.includes(x.id)))
-    {
-        return findResponsible(item.parent);
-    }
-
-    return item;
-}
-
-async function runHandler(
-    controller: TestController,
-    workspace: WorkspaceFolder,
-    request: TestRunRequest,
-    token: CancellationToken,
-)
+async function runHandler(_: TestController, workspace: WorkspaceFolder, request: TestRunRequest, token: CancellationToken)
 {
     const { profile } = request;
 
-    const exclude = request.exclude?.map(findResponsible);
-    const include = request.include?.map(findResponsible);
-
     if (!profile)
     {
-        LOG.toastError({ message: "Bad Profile", detail: [profile] });
+        LOG.showError("Bad Profile", request);
         return;
     }
 
-    const args: string[] = [];
+    const options: RunOptions = {
+        include: request.include?.map(item => item.id),
+    };
 
-    if (exclude)
+    const execution = await (profile.kind === TestRunProfileKind.Run
+        ? run(workspace, options)
+        : debug(workspace, options));
+
+    if (execution.isErr())
     {
-        // TODO: This has not been properly tested
-        args.push(...exclude.reduce<string[]>((prev, curr) => [...prev, "-e", escape(curr.id)], []));
-    }
-
-    if (include)
-    {
-        args.push(...include.map(item => item.id));
-    }
-
-    const run = await (profile.kind === TestRunProfileKind.Run
-        ? behave.run(args, { workspace })
-        : behave.debug(args, { workspace }));
-
-    if (run.isErr())
-    {
-        LOG.toastError({ message: "Could not start run", detail: [run.error] });
+        LOG.showError("Failed to start", execution.error);
         return;
     }
 
-    const { parsed, abort } = run.value;
-    const disposable = token.onCancellationRequested(abort);
+    const { track, dispose } = disposables();
+    const { parsed, abort } = execution.value;
 
-    const result = await parsed;
-    disposable.dispose();
+    track(token.onCancellationRequested(abort));
+    const result = dispose(await parsed);
 
     if (result.isErr())
     {
-        LOG.toastError({ message: "Could not parse results", detail: [result.error] });
+        LOG.showError("Failed to parse result", result.error);
         return;
     }
 
-    const items = flatItems(controller);
     const testRun = controller.createTestRun(request);
+    const { find } = testItems();
 
     const visitor = (item: Item) =>
     {
-        if (!settings.discoverSteps(workspace) && "step_type" in item)
-        {
-            return;
-        }
-
         const status = "status" in item ? item.status : item.result?.status;
 
         if (!status)
@@ -174,11 +161,10 @@ async function runHandler(
             return;
         }
 
-        const parent = items.get(item.location.bare);
+        const testItem = find(item);
 
-        if (!parent)
+        if (!testItem)
         {
-            LOG.warn("Could not find parent for item", item, items);
             return;
         }
 
@@ -188,19 +174,22 @@ async function runHandler(
         switch (status)
         {
             case Status.PASSED:
-                testRun.passed(parent, duration);
+                testRun.passed(testItem, duration);
                 break;
             case Status.FAILED:
-                const message = makeTestMessage(item, parent, testRun);
-                testRun.failed(parent, message, duration);
+                const { messages, output } = parseError(item) ?? { messages: [], output: [] };
+                testRun.failed(testItem, messages, duration);
+                output.forEach(message => testRun.appendOutput(message, undefined, testItem));
                 break;
             // @ts-expect-error
             default:
                 LOG.warn("Unhandled status", status);
             case Status.SKIPPED:
-                testRun.skipped(parent);
+                testRun.skipped(testItem);
+                break;
         }
     };
+
     traverseTree(result.value, visitor);
 
     testRun.end();
@@ -208,13 +197,13 @@ async function runHandler(
 
 function init(controller: TestController)
 {
-    const analyze = async (path: string, workspace: WorkspaceFolder, options?: behave.AnalyzeOptions) =>
+    const load = async (path: string, workspace: WorkspaceFolder) =>
     {
-        const parsed = await behave.analyze(path, workspace, options);
+        const result = await analyze(path, workspace);
 
-        if (parsed.isErr())
+        if (result.isErr())
         {
-            LOG.toastError({ message: "Could not analyze file", detail: [parsed.error, path, workspace.name] });
+            LOG.showError(`Failed to parse "${path}"`, result.error);
             return;
         }
 
@@ -225,30 +214,29 @@ function init(controller: TestController)
                 return;
             }
 
-            const rtn = createItem(controller, item);
-
-            if (parent)
-            {
-                parent.children.add(rtn);
-            }
+            const rtn = createTestItem(controller, item);
+            parent?.children.add(rtn);
 
             return rtn;
         };
-        traverseTree(parsed.value, visitor).filter(x => !!x).forEach(controller.items.add);
+
+        traverseTree(result.value, visitor).filter(x => !!x).forEach(controller.items.add);
     };
 
-    const createProfiles = (workspace: WorkspaceFolder) =>
+    const registerProfiles = (workspace: WorkspaceFolder) =>
     {
-        const handler = (request: TestRunRequest, token: CancellationToken) =>
-            runHandler(controller, workspace, request, token);
+        type ProfileParams = Parameters<typeof controller.createRunProfile>;
+        type HandlerParams = Parameters<ProfileParams[2]>;
+
+        const handler = (...params: HandlerParams) => runHandler(controller, workspace, ...params);
 
         return [
-            controller.createRunProfile(`Run (${workspace.name})`, TestRunProfileKind.Run, handler, true),
-            controller.createRunProfile(`Debug (${workspace.name})`, TestRunProfileKind.Debug, handler, false),
+            controller.createRunProfile(`Run (Workspace: ${workspace.name})`, TestRunProfileKind.Run, handler, true),
+            controller.createRunProfile(`Debug (Workspace: ${workspace.name})`, TestRunProfileKind.Debug, handler, false),
         ];
     };
 
-    return { ...controller, analyze, createProfiles };
+    return { ...controller, load, registerProfiles };
 }
 
 export const controller = init(tests.createTestController("behave", "Behave"));
