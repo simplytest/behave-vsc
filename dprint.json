@@ -1,4 +1,5 @@
 {
+    "lineWidth": 150,
     "typescript": {
         "module.sortImportDeclarations": "maintain",
         "quoteStyle": "preferDouble",
