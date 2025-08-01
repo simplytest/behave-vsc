@@ -1,34 +1,12 @@
 import { env, LogOutputChannel, Uri, window } from "vscode";
 
-interface ToastParams<T extends string>
+function init(log: LogOutputChannel)
 {
-    message: string;
-    actions?: T[];
-    detail?: any[];
-}
-
-type LoggerFunction = (message: string, ...args: any[]) => void;
-type ToastFunction<T extends string> = (message: string, ...items: T[]) => Thenable<T>;
-
-function toastify<T extends string>(original: LoggerFunction, toast: ToastFunction<T>)
-{
-    const unwrap = <T>(value?: T[]) => value ?? [];
-    const concat = (value?: any[]) => unwrap(value).reduce((prev, curr) => [...prev, "\n", curr], value ? ["\n"] : []);
-
-    return ({ message, detail, actions }: ToastParams<T>) =>
-    {
-        original(message, ...concat(detail));
-        return toast(message, ...unwrap(actions));
-    };
-}
-
-function init(original: LogOutputChannel)
-{
-    original.show();
+    log.show();
 
     const panic = async (message: string, ...args: any[]) =>
     {
-        original.error(`[Panic] ${message}`, ...args);
+        log.error(`[Panic] ${message}`, ...args);
 
         const result = window.showErrorMessage(
             "Panic!",
@@ -44,12 +22,25 @@ function init(original: LogOutputChannel)
         env.openExternal(Uri.parse("https://github.com/simplytest/behave-vsc/issues"));
     };
 
-    return {
-        ...original,
-        panic,
-        toastError: toastify(original.error, window.showErrorMessage),
-        toastInfo: toastify(original.info, window.showInformationMessage),
+    const showInfo = (message: string, ...params: any[]) =>
+    {
+        log.info(message, ...params);
+        window.showInformationMessage(message);
     };
+
+    const showError = async (message: string, ...params: any[]) =>
+    {
+        log.error(message, ...params);
+
+        if (await window.showErrorMessage(message, "Open Log") !== "Open Log")
+        {
+            return;
+        }
+
+        log.show();
+    };
+
+    return { ...log, panic, showInfo, showError };
 }
 
 export const LOG = init(window.createOutputChannel("Behave", { log: true }));

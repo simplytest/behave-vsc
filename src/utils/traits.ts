@@ -1,4 +1,13 @@
-type Pick<T, K extends keyof T> = Record<K, T[K]>;
+export type Intersection<T, U> = {
+    [K in keyof (T & U)]: (T & U)[K];
+};
+
+export type Enforce<T, K extends keyof R, R = Required<T>> = Intersection<
+    T,
+    {
+        [P in K]: R[P] extends boolean ? true : R[P];
+    }
+>;
 
 type DeepReplaceArray<T, K extends string, R> = T extends (infer U)[] ? DeepReplace<U, K, R>[] : never;
 

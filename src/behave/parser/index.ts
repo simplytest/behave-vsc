@@ -1,7 +1,6 @@
 import { readFile } from "fs/promises";
-import { err, ok } from "neverthrow";
 import { Uri, WorkspaceFolder } from "vscode";
-import { fromPromise } from "../../utils/neverthrow";
+import { err, fromPromise, ok } from "../../utils/expected";
 import { DeepReplace } from "../../utils/traits";
 import { Item, Keyword, Locatable, Tree } from "../types";
 

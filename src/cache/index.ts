@@ -1,15 +1,9 @@
 import { randomUUID } from "crypto";
 import { mkdir, rm, stat } from "fs/promises";
-import { err, ok } from "neverthrow";
 import { tmpdir } from "os";
 import { join } from "path";
 import { Disposable, WorkspaceFolder } from "vscode";
-import { fromPromise } from "../utils/neverthrow";
-
-export function encode(value: string)
-{
-    return Buffer.from(value).toString("base64url");
-}
+import { err, fromPromise, ok } from "../utils/expected";
 
 export async function workspaceCache(workspace: WorkspaceFolder)
 {
@@ -51,6 +45,11 @@ export async function fileCache(file: string = randomUUID(), workspace: Workspac
     }
 
     return ok({ path, disposable: new Disposable(() => fromPromise(rm(path))) });
+}
+
+function encode(value: string)
+{
+    return Buffer.from(value).toString("base64url");
 }
 
 async function isExpired(original: string, cached: string)

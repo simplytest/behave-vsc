@@ -1,7 +1,7 @@
 import { PVSC_EXTENSION_ID, PythonExtension, Resource } from "@vscode/python-extension";
-import { err, ok } from "neverthrow";
 import { extensions } from "vscode";
 import { LOG } from "../log";
+import { err, ok } from "./expected";
 
 export enum Error
 {
@@ -15,13 +15,13 @@ export function getExtension()
 
     if (!extension)
     {
-        LOG.toastError({ message: `Could not find Python (${PVSC_EXTENSION_ID}) extension` });
+        LOG.showError(`Could not find Python (${PVSC_EXTENSION_ID}) extension`);
         return err(Error.ExtensionMissing);
     }
 
     if (!extension.isActive)
     {
-        LOG.toastError({ message: "Python extension is not active" });
+        LOG.showError("Python extension is not active");
         return err(Error.ExtensionInactive);
     }
 

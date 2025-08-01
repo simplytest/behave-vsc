@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { err, ok } from "neverthrow";
+import { err, ok } from "./expected";
 
 export enum Error
 {
@@ -20,9 +20,9 @@ interface Options
 
 export async function spawn(executable: string, args: string[], options?: Options)
 {
-    const { exitCode, stdout, stderr } = await execa(executable, args, { ...options, reject: false });
+    const { exitCode, stdout, stderr, failed } = await execa(executable, args, { ...options, reject: false });
 
-    if (!exitCode)
+    if (failed)
     {
         return err(Error.FailedToStart);
     }
