@@ -1,3 +1,7 @@
+export type RequireOptional<T> = {
+    [K in keyof Required<T>]: T[K];
+};
+
 export type Intersection<T, U> = {
     [K in keyof (T & U)]: (T & U)[K];
 };

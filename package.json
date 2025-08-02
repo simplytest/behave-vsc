@@ -10,7 +10,7 @@
         "type": "git"
     },
     "engines": {
-        "vscode": "^1.101.0"
+        "vscode": "^1.102.0"
     },
     "categories": [
         "Testing"
@@ -28,17 +28,34 @@
     "contributes": {
         "commands": [
             {
-                "command": "behave.refresh",
-                "title": "Behave: Force Refresh File"
+                "command": "behave.run",
+                "title": "Behave: Run",
+                "icon": "$(run)"
+            },
+            {
+                "command": "behave.debug",
+                "title": "Behave: Debug",
+                "icon": "$(debug)"
+            },
+            {
+                "command": "behave.test",
+                "title": "Behave: Test",
+                "icon": "$(beaker)"
+            },
+            {
+                "command": "behave.analyze",
+                "title": "Behave: Load File",
+                "icon": "$(search)"
             },
             {
                 "command": "behave.discover",
-                "title": "Behave: Discover All Tests"
-            }
-        ],
-        "taskDefinitions": [
+                "title": "Behave: Discover",
+                "icon": "$(search)"
+            },
             {
-                "type": "behave"
+                "command": "behave.clear",
+                "title": "Behave: Clear",
+                "icon": "$(trash)"
             }
         ],
         "configuration": [
@@ -52,13 +69,13 @@
                     },
                     "behave.autoDiscover": {
                         "type": "boolean",
-                        "default": false,
+                        "default": true,
                         "description": "Whether or not to discover all tests on startup"
                     },
-                    "behave.discoverSteps": {
+                    "behave.codeLens": {
                         "type": "boolean",
-                        "default": false,
-                        "description": "Whether or not to discover individual steps"
+                        "default": true,
+                        "description": "Whether or not to enable CodeLens"
                     },
                     "behave.arguments": {
                         "type": "array",
@@ -78,7 +95,7 @@
                             ]
                         },
                         "default": [
-                            "Expected: (.*)[\\s\\S]*but: was (.*)"
+                            "Expected: (?<expected>.*)[\\s\\S]*but: was (?<actual>.*)"
                         ],
                         "description": "Regular Expressions to match failed runs against. Should have two groups, first for expected result, the other for the actual result"
                     }
@@ -100,7 +117,7 @@
     "devDependencies": {
         "@types/node": "^24.0.15",
         "@types/regexp.escape": "^2.0.0",
-        "@types/vscode": "^1.101.0",
+        "@types/vscode": "^1.102.0",
         "@typescript-eslint/eslint-plugin": "^8.37.0",
         "@typescript-eslint/parser": "^8.37.0",
         "@vscode/python-extension": "^1.0.5",

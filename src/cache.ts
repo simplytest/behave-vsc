@@ -3,11 +3,51 @@ import { mkdir, rm, stat } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { Disposable, WorkspaceFolder } from "vscode";
-import { err, fromPromise, ok } from "../utils/expected";
+import { err, fromPromise, ok } from "./utils/expected";
+
+const internalCache = new Map<string, unknown>();
+
+export const runtimeCache = {
+    create: <T>(name: string, initial: () => T) => ({
+        load: () =>
+        {
+            if (!internalCache.has(name))
+            {
+                internalCache.set(name, initial());
+            }
+
+            return internalCache.get(name)! as T;
+        },
+    }),
+    clear: (name?: string) =>
+    {
+        name ? internalCache.delete(name) : internalCache.clear();
+    },
+};
+
+export async function rootCache()
+{
+    const path = join(tmpdir(), "behave-vsc");
+    const prom = await fromPromise(mkdir(path, { recursive: true }));
+
+    if (prom.isErr())
+    {
+        return err(prom.error);
+    }
+
+    return ok(path);
+}
 
 export async function workspaceCache(workspace: WorkspaceFolder)
 {
-    const path = join(tmpdir(), "behave-vsc", encode(workspace.uri.fsPath));
+    const root = await rootCache();
+
+    if (root.isErr())
+    {
+        return err(root.error);
+    }
+
+    const path = join(root.value, encode(workspace.uri.fsPath));
     const prom = await fromPromise(mkdir(path, { recursive: true }));
 
     if (prom.isErr())

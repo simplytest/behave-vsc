@@ -19,6 +19,7 @@ function init(log: LogOutputChannel)
             return;
         }
 
+        log.show();
         env.openExternal(Uri.parse("https://github.com/simplytest/behave-vsc/issues"));
     };
 

@@ -26,12 +26,12 @@ export function* iterateItems(item: Item | Item[]): Generator<Item>
 {
     if ("elements" in item)
     {
-        return yield* iterateItems(item.elements);
+        yield* iterateItems(item.elements);
     }
 
     if ("steps" in item)
     {
-        return yield* iterateItems(item.steps);
+        yield* iterateItems(item.steps);
     }
 
     if (!Array.isArray(item))

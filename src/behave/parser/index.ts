@@ -45,7 +45,7 @@ function updateProperties<T extends Locatable>(workspace: WorkspaceFolder, item:
     return { ...item, ...changes.reduce((prev, current) => ({ ...prev, ...current }), {}) } as T;
 }
 
-export async function parse(path: string, workspace: WorkspaceFolder)
+export async function parseFile(path: string, workspace: WorkspaceFolder)
 {
     const data = await fromPromise(readFile(path, "utf8"));
 

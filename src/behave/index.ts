@@ -1,15 +1,12 @@
-import { debug as debugging, DebugConfiguration, DebugSession, ProcessExecution, Task, TaskGroup, tasks, WorkspaceFolder } from "vscode";
+import { WorkspaceFolder } from "vscode";
 import { fileCache } from "../cache";
 import { LOG } from "../log";
 import { settings } from "../settings";
-import { disposables } from "../utils/disposable";
-import { err, fromPromise, Ok, ok, Result } from "../utils/expected";
+import { err, Ok, ok, Result } from "../utils/expected";
 import { spawn } from "../utils/process";
-import { externalPromise } from "../utils/promise";
 import { getExecutable } from "../utils/python";
 import { Enforce } from "../utils/traits";
-import { parse } from "./parser";
-import { Tree } from "./types";
+import { parseFile } from "./parser";
 
 export interface CommandOptions
 {
@@ -77,7 +74,6 @@ export function buildCommand(workspace: WorkspaceFolder, options?: CommandOption
 export enum Error
 {
     BadStatus,
-    FailedToStart,
 }
 
 export interface AnalyzeOptions
@@ -92,7 +88,7 @@ export async function analyze(file: string, workspace: WorkspaceFolder, options?
     if (previous.isOk())
     {
         LOG.debug("Using previous result", file);
-        return parse(previous.value.path, workspace);
+        return parseFile(previous.value.path, workspace);
     }
 
     const cache = await fileCache(file, workspace);
@@ -102,7 +98,7 @@ export async function analyze(file: string, workspace: WorkspaceFolder, options?
         return err(cache.error);
     }
 
-    const command = buildCommand(workspace, { dry: true, output: cache.value.path });
+    const command = buildCommand(workspace, { dry: true, output: cache.value.path, include: [file] });
 
     if (command.isErr())
     {
@@ -125,126 +121,5 @@ export async function analyze(file: string, workspace: WorkspaceFolder, options?
         return err(Error.BadStatus);
     }
 
-    return parse(cache.value.path, workspace);
-}
-
-export type RunOptions = Pick<CommandOptions, "include">;
-
-export async function run(workspace: WorkspaceFolder, options: RunOptions)
-{
-    const cache = await fileCache(undefined, workspace);
-
-    if (cache.isErr())
-    {
-        return err(cache.error);
-    }
-
-    const { track, dispose } = disposables();
-    track(cache.value.disposable);
-
-    const { path } = cache.value;
-    const command = buildCommand(workspace, { ...options, output: path }).orTee(dispose);
-
-    if (command.isErr())
-    {
-        return err(command.error);
-    }
-
-    const { executable, args } = command.value;
-
-    const process = new ProcessExecution(executable, args, { cwd: workspace.uri.fsPath });
-    const task = new Task({ type: "behave" }, workspace, "Behave", "behave", process);
-
-    task.source = "$(beaker)";
-    task.group = TaskGroup.Test;
-    task.presentationOptions = { clear: true, echo: true };
-
-    /*
-        This is extremely hacky. The functionality for multiple instances was tracked here:
-            * https://github.com/microsoft/vscode/issues/90125
-
-        The actual properties and enum values can be seen here:
-            * https://github.com/microsoft/vscode/blob/c7b91f814a23917b86afa95f65dccf292fb3bf91/src/vs/workbench/contrib/tasks/common/tasks.ts#L570
-            * https://github.com/microsoft/vscode/blob/c7b91f814a23917b86afa95f65dccf292fb3bf91/src/vs/workbench/contrib/tasks/common/tasks.ts#L578
-
-        However, they do not exist in the @types/vscode package. See: https://github.com/microsoft/vscode-discussions/discussions/2774
-    */
-    task.runOptions = { instancePolicy: 4, instanceLimit: Number.MAX_SAFE_INTEGER } as any;
-
-    const taskExecution = (await fromPromise(tasks.executeTask(task))).orTee(dispose);
-
-    if (taskExecution.isErr())
-    {
-        return err(taskExecution.error);
-    }
-
-    const { promise, resolve } = externalPromise<Result<Tree, unknown>>();
-
-    track(tasks.onDidEndTaskProcess(async ({ execution }) =>
-    {
-        // TODO: Investigate parsing failures when spam starting task, it seems output file is disposed before it's being read.
-
-        if (execution !== taskExecution.value)
-        {
-            return;
-        }
-
-        dispose(resolve(await parse(path, workspace)));
-    }));
-
-    return ok({ parsed: promise, abort: taskExecution.value.terminate });
-}
-
-export async function debug(workspace: WorkspaceFolder, options: RunOptions)
-{
-    const cache = await fileCache(undefined, workspace, {});
-
-    if (cache.isErr())
-    {
-        return err(cache.error);
-    }
-
-    const { track, dispose } = disposables();
-    track(cache.value.disposable);
-
-    const { path } = cache.value;
-    const { args } = buildCommand(workspace, { ...options, output: path, skipPython: true }).value;
-
-    const configuration: DebugConfiguration = {
-        name: "Behave",
-
-        type: "python",
-        module: "behave",
-        request: "launch",
-
-        args,
-        cwd: workspace.uri.fsPath,
-    };
-
-    const { promise: sessionFuture, resolve: resolveSession } = externalPromise<DebugSession>();
-
-    track(debugging.onDidStartDebugSession(session =>
-    {
-        resolveSession(session);
-    }));
-
-    if (!await debugging.startDebugging(workspace, configuration))
-    {
-        return dispose(err(Error.FailedToStart));
-    }
-
-    const debugSession = await sessionFuture;
-    const { promise: parsed, resolve: resolveParsed } = externalPromise<Result<Tree, unknown>>();
-
-    track(debugging.onDidTerminateDebugSession(async (session) =>
-    {
-        if (session !== debugSession)
-        {
-            return;
-        }
-
-        dispose(resolveParsed(await parse(path, workspace)));
-    }));
-
-    return ok({ parsed, abort: () => debugging.stopDebugging(debugSession) });
+    return parseFile(cache.value.path, workspace);
 }
