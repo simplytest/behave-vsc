@@ -5,8 +5,6 @@ The Behave extension aims to make development on [behave](https://behave.readthe
 ## 💡 Features
 
 * 🔍 Automatic Test Discovery
-  > See [configuration](#️-configuration) for more information
-
 
 * 🧪 Test-Explorer Integration
   * 👀 Allows to view Features, Scenarios and Steps
@@ -30,26 +28,50 @@ The Behave extension aims to make development on [behave](https://behave.readthe
 
 The following configuration options are available:
 
-| Name                   | Description                                                               | Default                                 |
-| ---------------------- | ------------------------------------------------------------------------- | --------------------------------------- |
-| `behave.allowedFiles`  | The glob that is used to identify valid behave feature files              | `**/*.feature`                          |
-| `behave.autoDiscover`  | Whether or not to automatically discover all tests when opening a project | `false`                                 |
-| `behave.discoverSteps` | Whether or not to automatically add individual steps to the Test-Explorer | `false`                                 |
-| `behave.arguments`     | Additional arguments to pass to behave                                    | `[]`                                    |
-| `behave.expectedRegex` | Define the Regex used to determine the expected / actual value            | `Expected: (.*)[\\s\\S]*but: was (.*)"` |
+| Name                  | Description                                                                        | Default                                                    |
+| --------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `behave.allowedFiles` | The glob that is used to identify valid behave feature files                       | `**/*.feature`                                             |
+| `behave.autoDiscover` | Whether or not to automatically discover all tests when opening a project          | `true`                                                     |
+| `behave.codeLens`     | Whether or not to enable Code-Lens to allow running outlines from the Feature-File | `true`                                                     |
+| `behave.arguments`    | Additional arguments to pass to behave                                             | `[]`                                                       |
+| `behave.diffRegex`    | Define the Regex used to determine the expected / actual value                     | `Expected: (?<expected>.*)[\\s\\S]*but: was (?<actual>.*)` |
+
+
+The `behave.arguments` setting allows for fine-grained control over how behave is executed.  
+For example, if you want to enable allure reports, you could use the following configuration:
+
+```json
+{
+    "behave.arguments": [
+        "-f",
+        "allure_behave.formatter:AllureFormatter",
+        "-o",
+        "allure"
+    ],
+}
+```
+
 
 ## 💻 Commands
 
 The following commands are available:
 
-| Name                         | Description                                                                                     |
-| ---------------------------- | ----------------------------------------------------------------------------------------------- |
-| `Behave: Force Refresh File` | Refresh the currently opened file. Ignores the `allowedFiles` setting and invalidates the cache |
-| `Behave: Discover All Tests` | Manually (re-)discover all feature files                                                        |
+| Name                | Description                               |
+| ------------------- | ----------------------------------------- |
+| `Behave: Run`       | Run Behave Tests                          |
+| `Behave: Debug`     | Debug Behave Tests                        |
+| `Behave: Load File` | Discover Tests in the currently open file |
+| `Behave: Discover`  | Manually discover all tests               |
+| `Behave: Clear`     | Clear the cache and discovered tests      |
+
+All commands can also be used by other extensions, for information on arguments and return values, see [`src/commands.ts`](./src/commands.ts)
+
 ---
 
 <div align="center">
 
-<img height="100" src="./data/banner.png" alt="Banner" />
+Made by
+
+![](data/banner.png)
 
 </div>
