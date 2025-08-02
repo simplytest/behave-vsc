@@ -21,12 +21,11 @@ import {
 } from "vscode";
 import { buildCommand, CommandOptions } from "./behave";
 import { parseFile } from "./behave/parser";
-import { traverseTree } from "./behave/parser/utils";
-import { Item, Status, Tree } from "./behave/types";
+import { Tree } from "./behave/types";
 import { fileCache, rootCache, runtimeCache } from "./cache";
 import { LOG } from "./log";
 import { settings } from "./settings";
-import { parseError, testController } from "./testController";
+import { testController } from "./testController";
 import { disposables } from "./utils/disposable";
 import { err, fromPromise, ok, Result } from "./utils/expected";
 import { externalPromise } from "./utils/promise";
@@ -199,50 +198,7 @@ export const commands = {
                 return;
             }
 
-            const testRun = testController.createTestRun(request ?? { include: [], exclude: [], preserveFocus: false, profile: undefined });
-            const { find } = testController.itemLocator();
-
-            const visitor = (item: Item) =>
-            {
-                const status = "status" in item ? item.status : item.result?.status;
-
-                if (!status)
-                {
-                    return;
-                }
-
-                const testItem = find(item);
-
-                if (!testItem)
-                {
-                    return;
-                }
-
-                const hasResult = "result" in item && item.result;
-                const duration = hasResult ? item.result!.duration : undefined;
-
-                switch (status)
-                {
-                    case Status.PASSED:
-                        testRun.passed(testItem, duration);
-                        break;
-                    case Status.FAILED:
-                        const { messages, output } = parseError(item) ?? { messages: [], output: [] };
-                        testRun.failed(testItem, messages, duration);
-                        output.forEach(message => testRun.appendOutput(message, undefined, testItem));
-                        break;
-                    // @ts-expect-error
-                    default:
-                        LOG.warn("Unhandled status", status);
-                    case Status.SKIPPED:
-                        testRun.skipped(testItem);
-                        break;
-                }
-            };
-
-            traverseTree(result.value, visitor);
-
-            testRun.end();
+            testController.createRun(result.value, request);
         },
     ),
     analyze: command("behave.analyze", async (path: Uri | undefined = window.activeTextEditor?.document.uri, skipCheck?: boolean) =>

@@ -11,12 +11,44 @@ import {
     TestTag,
     WorkspaceFolder,
 } from "vscode";
-import { analyze, AnalyzeOptions } from "./behave";
+import { analyze } from "./behave";
 import { traverseTree } from "./behave/parser/utils";
-import { Item } from "./behave/types";
+import { Item, Status, Tree } from "./behave/types";
 import { commands } from "./commands";
 import { LOG } from "./log";
 import { settings } from "./settings";
+
+function createTestItem(controller: TestController, item: Item)
+{
+    const rtn = controller.createTestItem(item.location.bare, item.name, item.location.full);
+
+    const position = new Position(item.location.line, item.location.line + 1);
+    const tags: TestTag[] = [];
+
+    if ("tags" in item)
+    {
+        tags.push(...item.tags.map(tag => new TestTag(tag)));
+    }
+
+    rtn.range = new Range(position, position);
+    rtn.tags = tags;
+
+    return rtn;
+}
+
+function itemLocator(controller: TestController)
+{
+    const items = new Map<string, TestItem>();
+
+    const visit = (item: TestItem) =>
+    {
+        item.children.forEach(visit);
+        items.set(item.id, item);
+    };
+    controller.items.forEach(visit);
+
+    return { find: (item: Item) => items.get(item.location.bare) };
+}
 
 interface ParsedError
 {
@@ -75,24 +107,6 @@ export function parseError(item: Item): ParsedError | undefined
 
 function init(controller: TestController)
 {
-    const createTestItem = (item: Item) =>
-    {
-        const rtn = controller.createTestItem(item.location.bare, item.name, item.location.full);
-
-        const position = new Position(item.location.line, item.location.line + 1);
-        const tags: TestTag[] = [];
-
-        if ("tags" in item)
-        {
-            tags.push(...item.tags.map(tag => new TestTag(tag)));
-        }
-
-        rtn.range = new Range(position, position);
-        rtn.tags = tags;
-
-        return rtn;
-    };
-
     const loadFile = async (path: string, workspace: WorkspaceFolder) =>
     {
         const result = await analyze(path, workspace);
@@ -110,7 +124,7 @@ function init(controller: TestController)
                 return;
             }
 
-            const rtn = createTestItem(item);
+            const rtn = createTestItem(controller, item);
             parent?.children.add(rtn);
 
             return rtn;
@@ -132,18 +146,55 @@ function init(controller: TestController)
         }
     };
 
-    const itemLocator = () =>
+    const dummyRequest: TestRunRequest = { include: [], exclude: [], preserveFocus: false, profile: undefined };
+
+    const createRun = (tree: Tree, request?: TestRunRequest) =>
     {
-        const items = new Map<string, TestItem>();
+        const testRun = controller.createTestRun(request ?? dummyRequest);
 
-        const visit = (item: TestItem) =>
+        const { find } = itemLocator(controller);
+
+        const visitor = (item: Item) =>
         {
-            item.children.forEach(visit);
-            items.set(item.id, item);
-        };
-        controller.items.forEach(visit);
+            const status = "status" in item ? item.status : item.result?.status;
 
-        return { find: (item: Item) => items.get(item.location.bare) };
+            if (!status)
+            {
+                return;
+            }
+
+            const testItem = find(item);
+
+            if (!testItem)
+            {
+                return;
+            }
+
+            const hasResult = "result" in item && item.result;
+            const duration = hasResult ? item.result!.duration : undefined;
+
+            switch (status)
+            {
+                case Status.PASSED:
+                    testRun.passed(testItem, duration);
+                    break;
+                case Status.FAILED:
+                    const { messages, output } = parseError(item) ?? { messages: [], output: [] };
+                    testRun.failed(testItem, messages, duration);
+                    output.forEach(message => testRun.appendOutput(message, undefined, testItem));
+                    break;
+                // @ts-expect-error
+                default:
+                    LOG.warn("Unhandled status", status);
+                case Status.SKIPPED:
+                    testRun.skipped(testItem);
+                    break;
+            }
+        };
+
+        traverseTree(tree, visitor);
+
+        testRun.end();
     };
 
     const registerProfiles = (workspace: WorkspaceFolder) =>
@@ -157,7 +208,7 @@ function init(controller: TestController)
         ];
     };
 
-    return { ...controller, createTestItem, loadFile, unloadFile, itemLocator, registerProfiles };
+    return { ...controller, loadFile, unloadFile, createRun, registerProfiles };
 }
 
 export const testController = init(tests.createTestController("behave", "Behave"));
