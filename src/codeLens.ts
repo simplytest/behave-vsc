@@ -6,7 +6,7 @@ import { runtimeCache } from "./cache";
 import { commands } from "./commands";
 import { settings } from "./settings";
 
-const cacheLoader = runtimeCache.create("codeLens", () => new Map<string, CodeLens[]>());
+const cacheLoader = runtimeCache.create("codeLens", () => new Map<string, { version: number; lenses: CodeLens[] }>());
 
 function makeCodeLens(line: number, scenarios: Scenario[], workspace: WorkspaceFolder)
 {
@@ -40,15 +40,14 @@ export const codeLensProvider = new class implements CodeLensProvider
             return [];
         }
 
-        const { fileName } = document;
-        const cache = cacheLoader.load();
+        const { version, fileName } = document;
 
-        if (cache.has(fileName))
+        const cache = cacheLoader.load();
+        const cached = cache.get(fileName);
+
+        if (cached && cached.version >= version)
         {
-            return cache.get(fileName);
-        } else
-        {
-            cache.set(fileName, []);
+            return cached.lenses;
         }
 
         const root = workspace.getWorkspaceFolder(document.uri);
@@ -109,7 +108,7 @@ export const codeLensProvider = new class implements CodeLensProvider
             outlines.at(-1)!.push(item);
         }
 
-        const rtn = cache.get(fileName)!;
+        const lenses: CodeLens[] = [];
 
         for (const scenarios of outlines)
         {
@@ -118,7 +117,7 @@ export const codeLensProvider = new class implements CodeLensProvider
                 continue;
             }
 
-            rtn.push(...makeCodeLens(scenarios[0].steps[0].location.line - 1, scenarios, root));
+            lenses.push(...makeCodeLens(scenarios[0].steps[0].location.line - 1, scenarios, root));
         }
 
         for (const scenarios of examples)
@@ -128,9 +127,11 @@ export const codeLensProvider = new class implements CodeLensProvider
                 continue;
             }
 
-            rtn.push(...makeCodeLens(scenarios[0].location.line - 2, scenarios, root));
+            lenses.push(...makeCodeLens(scenarios[0].location.line - 2, scenarios, root));
         }
 
-        return rtn;
+        cache.set(fileName, { version, lenses });
+
+        return lenses;
     }
 }();

@@ -11,10 +11,9 @@ import {
     TestTag,
     WorkspaceFolder,
 } from "vscode";
-import { analyze } from "./behave";
+import { analyze, AnalyzeOptions } from "./behave";
 import { traverseTree } from "./behave/parser/utils";
 import { Item } from "./behave/types";
-import { runtimeCache } from "./cache";
 import { commands } from "./commands";
 import { LOG } from "./log";
 import { settings } from "./settings";
@@ -76,8 +75,6 @@ export function parseError(item: Item): ParsedError | undefined
 
 function init(controller: TestController)
 {
-    const parsedCacheLoader = runtimeCache.create("testExplorer", () => new Set<string>());
-
     const createTestItem = (item: Item) =>
     {
         const rtn = controller.createTestItem(item.location.bare, item.name, item.location.full);
@@ -98,14 +95,6 @@ function init(controller: TestController)
 
     const loadFile = async (path: string, workspace: WorkspaceFolder) =>
     {
-        const parsedCache = parsedCacheLoader.load();
-
-        if (parsedCache.has(path))
-        {
-            LOG.debug("Skipping reevaluation", path);
-            return;
-        }
-
         const result = await analyze(path, workspace);
 
         if (result.isErr())
@@ -128,7 +117,6 @@ function init(controller: TestController)
         };
 
         traverseTree(result.value, visitor).filter(x => !!x).forEach(controller.items.add);
-        parsedCache.add(path);
     };
 
     const unloadFile = async (path: string) =>

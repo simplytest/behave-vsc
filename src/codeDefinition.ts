@@ -1,10 +1,26 @@
-import { DefinitionProvider, Location, Position, workspace } from "vscode";
+import { Definition, DefinitionProvider, Location, Position, workspace } from "vscode";
 import { analyze } from "./behave";
 import { iterateItems } from "./behave/parser/utils";
+import { runtimeCache } from "./cache";
+
+const cacheLoader = runtimeCache.create(
+    "codeDefinition",
+    () => new Map<{ path: string; line: number }, { version: number; definition: Definition }>(),
+);
 
 export const definitionProvider: DefinitionProvider = {
-    async provideDefinition({ fileName, uri }, { line }, _token)
+    async provideDefinition({ uri, version, fileName }, { line }, _)
     {
+        const cache = cacheLoader.load();
+
+        const id = { path: fileName, line };
+        const cached = cache.get(id);
+
+        if (cached && cached.version >= version)
+        {
+            return cached.definition;
+        }
+
         const root = workspace.getWorkspaceFolder(uri);
 
         if (!root)
@@ -29,6 +45,9 @@ export const definitionProvider: DefinitionProvider = {
 
         const { location } = step.match;
 
-        return new Location(location.full, new Position(location.line, location.line + 1));
+        const definition = new Location(location.full, new Position(location.line, location.line + 1));
+        cache.set(id, { version, definition });
+
+        return definition;
     },
 };

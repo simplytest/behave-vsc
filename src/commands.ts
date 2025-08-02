@@ -1,4 +1,4 @@
-import { glob, rm } from "fs/promises";
+import { rm } from "fs/promises";
 import { minimatch } from "minimatch";
 import {
     CancellationToken,
@@ -8,6 +8,7 @@ import {
     DebugConfiguration,
     DebugSession,
     ProcessExecution,
+    RelativePattern,
     Task,
     TaskGroup,
     tasks,
@@ -274,14 +275,14 @@ export const commands = {
             return;
         }
 
-        for (const workspace of workspaces)
+        for (const root of workspaces)
         {
-            for await (const file of glob(settings.allowedFiles(), { cwd: workspace.uri.fsPath }))
+            for (const file of await workspace.findFiles(new RelativePattern(root, settings.allowedFiles())))
             {
-                testController.loadFile(file, workspace);
+                testController.loadFile(file.fsPath, root);
             }
 
-            testController.registerProfiles(workspace);
+            testController.registerProfiles(root);
         }
     }),
     clearCache: command("behave.clear", async () =>
