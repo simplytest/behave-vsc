@@ -1,4 +1,4 @@
-import { CancellationToken, CodeLens, CodeLensProvider, Position, Range, TestRunProfileKind, TextDocument, workspace } from "vscode";
+import { CancellationToken, CodeLens, CodeLensProvider, Position, Range, TestRunProfileKind, TextDocument, workspace, WorkspaceFolder } from "vscode";
 import { analyze } from "./behave";
 import { iterateItems } from "./behave/parser/utils";
 import { Keyword, Scenario } from "./behave/types";
@@ -7,6 +7,29 @@ import { commands } from "./commands";
 import { settings } from "./settings";
 
 const cacheLoader = runtimeCache.create("codeLens", () => new Map<string, CodeLens[]>());
+
+function makeCodeLens(line: number, scenarios: Scenario[], workspace: WorkspaceFolder)
+{
+    const position = new Position(line, line);
+    const include = scenarios.map(scenario => scenario.location.bare);
+
+    return [
+        new CodeLens(
+            new Range(position, position),
+            commands.test.command({
+                title: "Run Outline",
+                arguments: [{ include, kind: TestRunProfileKind.Run }, undefined, undefined, workspace],
+            }),
+        ),
+        new CodeLens(
+            new Range(position, position),
+            commands.test.command({
+                title: "Debug Outline",
+                arguments: [{ include, kind: TestRunProfileKind.Debug }, undefined, undefined, workspace],
+            }),
+        ),
+    ];
+}
 
 export const codeLensProvider = new class implements CodeLensProvider
 {
@@ -42,8 +65,11 @@ export const codeLensProvider = new class implements CodeLensProvider
             return [];
         }
 
-        let previous = -Infinity;
+        let previousOutline = -Infinity;
+        let previousExample = -Infinity;
+
         const outlines: Scenario[][] = [];
+        const examples: Scenario[][] = [];
 
         for (const item of iterateItems(result.value))
         {
@@ -59,12 +85,27 @@ export const codeLensProvider = new class implements CodeLensProvider
 
             const { line } = item.location;
 
-            if (line - previous > 1)
+            if (line - previousExample > 1)
+            {
+                examples.push([]);
+            }
+
+            previousExample = line;
+            examples.at(-1)!.push(item);
+
+            if (item.steps.length === 0)
+            {
+                continue;
+            }
+
+            const { line: stepLine } = item.steps[0].location;
+
+            if (stepLine !== previousOutline)
             {
                 outlines.push([]);
             }
 
-            previous = line;
+            previousOutline = stepLine;
             outlines.at(-1)!.push(item);
         }
 
@@ -77,35 +118,17 @@ export const codeLensProvider = new class implements CodeLensProvider
                 continue;
             }
 
-            const location = scenarios[0].location;
-            const position = new Position(location.line - 2, location.line - 2);
+            rtn.push(...makeCodeLens(scenarios[0].steps[0].location.line - 1, scenarios, root));
+        }
 
-            rtn.push(
-                new CodeLens(
-                    new Range(position, position),
-                    commands.test.command({
-                        title: "Run Outline",
-                        arguments: [
-                            { include: scenarios.map(scenario => scenario.location.bare), kind: TestRunProfileKind.Run },
-                            undefined,
-                            undefined,
-                            root,
-                        ],
-                    }),
-                ),
-                new CodeLens(
-                    new Range(position, position),
-                    commands.test.command({
-                        title: "Debug Outline",
-                        arguments: [
-                            { include: scenarios.map(scenario => scenario.location.bare), kind: TestRunProfileKind.Debug },
-                            undefined,
-                            undefined,
-                            root,
-                        ],
-                    }),
-                ),
-            );
+        for (const scenarios of examples)
+        {
+            if (scenarios.length === 0)
+            {
+                continue;
+            }
+
+            rtn.push(...makeCodeLens(scenarios[0].location.line - 2, scenarios, root));
         }
 
         return rtn;
