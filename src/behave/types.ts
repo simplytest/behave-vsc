@@ -10,6 +10,7 @@ export enum Status
 
 export enum Keyword
 {
+    BACKGROUND = "Background",
     FEATURE = "Feature",
     SCENARIO = "Scenario",
     OUTLINE = "Scenario Outline",

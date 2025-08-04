@@ -64,6 +64,23 @@ export const codeLensProvider = new class implements CodeLensProvider
             return [];
         }
 
+        const ignore: string[] = [];
+
+        for (const item of iterateItems(result.value))
+        {
+            if (item.keyword !== Keyword.BACKGROUND)
+            {
+                continue;
+            }
+
+            if (!("steps" in item))
+            {
+                continue;
+            }
+
+            ignore.push(...item.steps.map(step => step.location.bare));
+        }
+
         let previousOutline = -Infinity;
         let previousExample = -Infinity;
 
@@ -92,12 +109,15 @@ export const codeLensProvider = new class implements CodeLensProvider
             previousExample = line;
             examples.at(-1)!.push(item);
 
-            if (item.steps.length === 0)
+            // When working with outlines we want to filter out background steps
+            const steps = item.steps.filter(x => !ignore.includes(x.location.bare));
+
+            if (steps.length === 0)
             {
                 continue;
             }
 
-            const { line: stepLine } = item.steps[0].location;
+            const { line: stepLine } = steps[0].location;
 
             if (stepLine !== previousOutline)
             {
@@ -105,7 +125,7 @@ export const codeLensProvider = new class implements CodeLensProvider
             }
 
             previousOutline = stepLine;
-            outlines.at(-1)!.push(item);
+            outlines.at(-1)!.push({ ...item, steps });
         }
 
         const lenses: CodeLens[] = [];
