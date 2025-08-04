@@ -18,9 +18,7 @@ function updateProperties<T extends Locatable>(workspace: WorkspaceFolder, item:
     const full = Uri.joinPath(workspace.uri, file);
 
     // Behave reports all locations with lines, this is inconvenient when passing the bare-location to execute the test.
-    const skipLine = "keyword" in item && item.keyword === Keyword.FEATURE && line === 0;
-
-    const changes: Partial<Item>[] = [{ location: { file, line, bare: skipLine ? file : bare, full } }];
+    const changes: Partial<Item>[] = [{ location: { file, line, bare: line === 0 ? file : bare, full } }];
 
     if ("name" in item && !item.name)
     {
