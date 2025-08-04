@@ -106,14 +106,7 @@ export async function analyze(file: string, workspace: WorkspaceFolder, options?
     }
 
     const { executable, args } = command.value;
-    const result = await spawn(executable, args, { cwd: workspace.uri.fsPath });
-
-    if (result.isErr())
-    {
-        return err(result.error);
-    }
-
-    const { status, stdout, stderr } = result.value;
+    const { status, stdout, stderr } = await spawn(executable, args, { cwd: workspace.uri.fsPath });
 
     if (status !== 0)
     {
