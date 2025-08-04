@@ -13,7 +13,7 @@ import {
 } from "vscode";
 import { analyze } from "./behave";
 import { traverseTree } from "./behave/parser/utils";
-import { Item, Status, Tree } from "./behave/types";
+import { Item, Keyword, Status, Tree } from "./behave/types";
 import { commands } from "./commands";
 import { LOG } from "./log";
 import { settings } from "./settings";
@@ -119,6 +119,11 @@ function init(controller: TestController)
 
         const visitor = (item: Item, parent?: TestItem) =>
         {
+            if (item.keyword === Keyword.BACKGROUND)
+            {
+                return;
+            }
+
             if ("step_type" in item)
             {
                 return;
