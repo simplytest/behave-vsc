@@ -1,5 +1,10 @@
+@Test @Test2
 Feature: Scenario Outline
 
+  Background: 
+    Given I test
+
+  @Test3
   Scenario Outline: Use Blender with <thing>
     Given I put "<thing>" in a blender
     When I switch the blender on

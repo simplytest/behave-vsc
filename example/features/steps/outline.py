@@ -13,6 +13,10 @@ transformation = {
     "Galaxy Nexus": "whoops"
 }
 
+@given('I test')
+def step_given_i_test(context):
+    pass
+    
 @when('I switch the blender on')
 def step_when_switch_blender_on(context):
     context.thing = transformation[context.thing]
