@@ -17,8 +17,7 @@ function updateProperties<T extends Locatable>(workspace: WorkspaceFolder, item:
     const file = bare.substring(0, delim);
     const full = Uri.joinPath(workspace.uri, file);
 
-    // Behave reports all locations with lines, this is inconvenient when passing the bare-location to execute the test.
-    const changes: Partial<Item>[] = [{ location: { file, line, bare: line === 0 ? file : bare, full } }];
+    const changes: Partial<Item>[] = [{ location: { file, line, bare, full } }];
 
     if ("name" in item && !item.name)
     {
@@ -53,6 +52,12 @@ export async function parseFile(path: string, workspace: WorkspaceFolder)
     }
 
     const parsed: Raw<Tree> = JSON.parse(data.value);
+    const updated: Tree = parsed.map(feature => updateProperties(workspace, feature));
 
-    return ok(parsed.map(feature => updateProperties(workspace, feature)));
+    const { location } = updated[0];
+
+    // Update the "bare" location of the first item to point to the whole file
+    location.bare = location.file;
+
+    return ok(updated);
 }
