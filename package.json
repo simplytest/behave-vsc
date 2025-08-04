@@ -53,8 +53,8 @@
                 "icon": "$(search)"
             },
             {
-                "command": "behave.clear",
-                "title": "Behave: Clear",
+                "command": "behave.reset",
+                "title": "Behave: Reset",
                 "icon": "$(trash)"
             }
         ],

@@ -241,7 +241,7 @@ export const commands = {
             testController.registerProfiles(root);
         }
     }),
-    clearCache: command("behave.clear", async () =>
+    reset: command("behave.reset", async () =>
     {
         const root = await rootCache();
 
