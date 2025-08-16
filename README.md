@@ -33,7 +33,7 @@ The following configuration options are available:
 | `behave.allowedFiles` | The glob that is used to identify valid behave feature files                       | `**/*.feature`                                             |
 | `behave.autoDiscover` | Whether or not to automatically discover all tests when opening a project          | `true`                                                     |
 | `behave.codeLens`     | Whether or not to enable Code-Lens to allow running outlines from the Feature-File | `true`                                                     |
-| `behave.arguments`    | Additional arguments to pass to behave                                             | `[]`                                                       |
+| `behave.arguments`    | Additional arguments to pass to behave                                             | `["-f", "pretty"]`                                         |
 | `behave.diffRegex`    | Define the Regex used to determine the expected / actual value                     | `Expected: (?<expected>.*)[\\s\\S]*but: was (?<actual>.*)` |
 
 

@@ -84,7 +84,10 @@
                                 "string"
                             ]
                         },
-                        "default": [],
+                        "default": [
+                            "-f",
+                            "pretty"
+                        ],
                         "description": "Additional command line arguments to pass to behave"
                     },
                     "behave.diffRegex": {
