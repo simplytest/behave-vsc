@@ -1,16 +1,12 @@
+.gitignore
+.vscode
+.github
+
 src/**
 example/**
 node_modules/**
 
-.gitignore
-.vscode/**
-.vscode-test/**
-
-esbuild.js
-dprint.json
-
-**/tsconfig.json
-**/eslint.config.mjs
 **/*.map
-**/*.ts
-**/.vscode-test.*
+**/dprint*
+**/tsconfig*
+**/{eslint,esbuild}*
