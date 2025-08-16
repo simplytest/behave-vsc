@@ -85,7 +85,7 @@ export function parseError(item: Item): ParsedError | undefined
     }
 
     const whole = error_message.join("\r\n");
-    const message = new TestMessage(error_message.at(-1)!);
+    const message = new TestMessage(whole);
 
     for (const regex of settings.diffRegex())
     {
@@ -175,8 +175,7 @@ function init(controller: TestController)
                 return;
             }
 
-            const hasResult = "result" in item && item.result;
-            const duration = hasResult ? item.result!.duration : undefined;
+            const duration = "result" in item ? item.result?.duration : undefined;
 
             switch (status)
             {
