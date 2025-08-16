@@ -3,7 +3,7 @@
     "publisher": "SimplyTest",
     "description": "Test Runner support for Behave",
     "displayName": "Behave",
-    "version": "1.0.0",
+    "version": "0.9.0",
     "preview": true,
     "repository": {
         "url": "https://github.com/simplytest/behave-vsc",
