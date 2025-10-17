@@ -4,25 +4,30 @@ The Behave extension aims to make development on [behave](https://behave.readthe
 
 ## 💡 Features
 
-* 🔍 Automatic Test Discovery
+- 🔍 Automatic Test Discovery
 
-* 🧪 Test-Explorer Integration
-  * 👀 Allows to view Features, Scenarios and Steps
-  * 🐛 Debug and Run Tests directly from the Test-Explorer UI  
+- 🧪 Test-Explorer Integration
 
-* 🔳 Scenario-Outline Support
+  - 👀 Allows to view Features, Scenarios and Steps
+  - 🐛 Debug and Run Tests directly from the Test-Explorer UI
+
+- 🔳 Scenario-Outline Support
+
   > Allows to run individual examples
 
-* 🔍 Definition Provider
+- 🔍 Definition Provider
+
   > Jump to the corresponding implementation straight from the Test-File
 
-* ⚙️ Configurable
+- ⚙️ Configurable
+
   > Various configuration options allow you to tweak the extension for your needs
 
-* 🔄 Automatic Refresh
+- 🔄 Automatic Refresh
+
   > File Updates and Deletions are tracked and updates are issued accordingly
 
-* 🤏 Small Footprint
+- 🤏 Small Footprint
 
 ## ⚙️ Configuration
 
@@ -36,21 +41,19 @@ The following configuration options are available:
 | `behave.arguments`    | Additional arguments to pass to behave                                             | `["-f", "pretty"]`                                         |
 | `behave.diffRegex`    | Define the Regex used to determine the expected / actual value                     | `Expected: (?<expected>.*)[\\s\\S]*but: was (?<actual>.*)` |
 
-
 The `behave.arguments` setting allows for fine-grained control over how behave is executed.  
 For example, if you want to enable allure reports, you could use the following configuration:
 
 ```json
 {
-    "behave.arguments": [
-        "-f",
-        "allure_behave.formatter:AllureFormatter",
-        "-o",
-        "allure"
-    ],
+  "behave.arguments": [
+    "-f",
+    "allure_behave.formatter:AllureFormatter",
+    "-o",
+    "allure"
+  ]
 }
 ```
-
 
 ## 💻 Commands
 

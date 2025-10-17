@@ -1,143 +1,143 @@
 {
-    "name": "behave-vscode",
-    "publisher": "SimplyTest",
-    "description": "Test Runner support for Behave",
-    "displayName": "Behave VSCode",
-    "version": "0.9.0",
-    "preview": true,
-    "repository": {
-        "url": "https://github.com/simplytest/behave-vsc",
-        "type": "git"
-    },
-    "engines": {
-        "vscode": "^1.102.0"
-    },
-    "categories": [
-        "Testing"
+  "name": "behave-vscode",
+  "publisher": "SimplyTest",
+  "description": "Test Runner support for Behave",
+  "displayName": "Behave VSCode",
+  "version": "0.9.0",
+  "preview": true,
+  "repository": {
+    "url": "https://github.com/simplytest/behave-vsc",
+    "type": "git"
+  },
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Testing"
+  ],
+  "keywords": [
+    "Test",
+    "Behave",
+    "Test Runner"
+  ],
+  "icon": "./data/logo.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/bundle",
+  "contributes": {
+    "commands": [
+      {
+        "command": "behave.run",
+        "title": "Behave: Run",
+        "icon": "$(run)"
+      },
+      {
+        "command": "behave.debug",
+        "title": "Behave: Debug",
+        "icon": "$(debug)"
+      },
+      {
+        "command": "behave.test",
+        "title": "Behave: Test",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "behave.analyze",
+        "title": "Behave: Load File",
+        "icon": "$(search)"
+      },
+      {
+        "command": "behave.discover",
+        "title": "Behave: Discover",
+        "icon": "$(search)"
+      },
+      {
+        "command": "behave.reset",
+        "title": "Behave: Reset",
+        "icon": "$(trash)"
+      }
     ],
-    "keywords": [
-        "Test",
-        "Behave",
-        "Test Runner"
-    ],
-    "icon": "./data/logo.png",
-    "activationEvents": [
-        "onStartupFinished"
-    ],
-    "main": "./out/bundle",
-    "contributes": {
-        "commands": [
-            {
-                "command": "behave.run",
-                "title": "Behave: Run",
-                "icon": "$(run)"
+    "configuration": [
+      {
+        "title": "behave",
+        "properties": {
+          "behave.allowedFiles": {
+            "type": "string",
+            "default": "**/*.feature",
+            "description": "A glob-pattern matching the allowed file-types"
+          },
+          "behave.autoDiscover": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether or not to discover all tests on startup"
+          },
+          "behave.codeLens": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether or not to enable CodeLens"
+          },
+          "behave.arguments": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string"
+              ]
             },
-            {
-                "command": "behave.debug",
-                "title": "Behave: Debug",
-                "icon": "$(debug)"
+            "default": [
+              "-f",
+              "pretty"
+            ],
+            "description": "Additional command line arguments to pass to behave"
+          },
+          "behave.diffRegex": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string"
+              ]
             },
-            {
-                "command": "behave.test",
-                "title": "Behave: Test",
-                "icon": "$(beaker)"
-            },
-            {
-                "command": "behave.analyze",
-                "title": "Behave: Load File",
-                "icon": "$(search)"
-            },
-            {
-                "command": "behave.discover",
-                "title": "Behave: Discover",
-                "icon": "$(search)"
-            },
-            {
-                "command": "behave.reset",
-                "title": "Behave: Reset",
-                "icon": "$(trash)"
-            }
-        ],
-        "configuration": [
-            {
-                "title": "behave",
-                "properties": {
-                    "behave.allowedFiles": {
-                        "type": "string",
-                        "default": "**/*.feature",
-                        "description": "A glob-pattern matching the allowed file-types"
-                    },
-                    "behave.autoDiscover": {
-                        "type": "boolean",
-                        "default": true,
-                        "description": "Whether or not to discover all tests on startup"
-                    },
-                    "behave.codeLens": {
-                        "type": "boolean",
-                        "default": true,
-                        "description": "Whether or not to enable CodeLens"
-                    },
-                    "behave.arguments": {
-                        "type": "array",
-                        "items": {
-                            "type": [
-                                "string"
-                            ]
-                        },
-                        "default": [
-                            "-f",
-                            "pretty"
-                        ],
-                        "description": "Additional command line arguments to pass to behave"
-                    },
-                    "behave.diffRegex": {
-                        "type": "array",
-                        "items": {
-                            "type": [
-                                "string"
-                            ]
-                        },
-                        "default": [
-                            "Expected: (?<expected>.*)[\\s\\S]*but: was (?<actual>.*)"
-                        ],
-                        "description": "Regular Expressions to match failed runs against. Should have two groups, first for expected result, the other for the actual result"
-                    }
-                }
-            }
-        ]
-    },
-    "scripts": {
-        "esbuild": "esbuild ./src/extension.ts --bundle --external:vscode --outfile=out/bundle.js --format=cjs --platform=node",
-        "compile": "pnpm run check-ts && pnpm run lint && pnpm run esbuild --sourcemap",
-        "prepublish": "pnpm run compile --minify",
-        "lint": "eslint src",
-        "check-ts": "tsc --noEmit",
-        "watch": "concurrently 'pnpm:watch:*'",
-        "watch:esbuild": "node esbuild.js --watch",
-        "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-        "package": "pnpm run prepublish && vsce package --baseImagesUrl https://raw.githubusercontent.com/simplytest/behave-vsc/main/"
-    },
-    "devDependencies": {
-        "@types/node": "^24.0.15",
-        "@types/regexp.escape": "^2.0.0",
-        "@types/vscode": "^1.102.0",
-        "@typescript-eslint/eslint-plugin": "^8.37.0",
-        "@typescript-eslint/parser": "^8.37.0",
-        "@vscode/python-extension": "^1.0.5",
-        "@vscode/vsce": "^3.6.0",
-        "concurrently": "^9.2.0",
-        "esbuild": "^0.25.8",
-        "eslint": "^9.31.0",
-        "typescript": "^5.8.3"
-    },
-    "dependencies": {
-        "execa": "^9.6.0",
-        "minimatch": "^10.0.3",
-        "neverthrow": "^8.2.0",
-        "regexp.escape": "^2.0.1"
-    },
-    "packageManager": "pnpm@10.13.1",
-    "vsce": {
-        "dependencies": false
-    }
+            "default": [
+              "Expected: (?<expected>.*)[\\s\\S]*but: was (?<actual>.*)"
+            ],
+            "description": "Regular Expressions to match failed runs against. Should have two groups, first for expected result, the other for the actual result"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "esbuild": "esbuild ./src/extension.ts --bundle --external:vscode --outfile=out/bundle.js --format=cjs --platform=node",
+    "compile": "pnpm run check-ts && pnpm run lint && pnpm run esbuild --sourcemap",
+    "prepublish": "pnpm run compile --minify",
+    "lint": "eslint src",
+    "check-ts": "tsc --noEmit",
+    "watch": "concurrently 'pnpm:watch:*'",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "pnpm run prepublish && vsce package --baseImagesUrl https://raw.githubusercontent.com/simplytest/behave-vsc/main/"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.15",
+    "@types/regexp.escape": "^2.0.0",
+    "@types/vscode": "^1.102.0",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
+    "@vscode/python-extension": "^1.0.5",
+    "@vscode/vsce": "^3.6.0",
+    "concurrently": "^9.2.0",
+    "esbuild": "^0.25.8",
+    "eslint": "^9.31.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "execa": "^9.6.0",
+    "minimatch": "^10.0.3",
+    "neverthrow": "^8.2.0",
+    "regexp.escape": "^2.0.1"
+  },
+  "packageManager": "pnpm@10.13.1",
+  "vsce": {
+    "dependencies": false
+  }
 }

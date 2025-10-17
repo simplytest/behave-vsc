@@ -1,6 +1,4 @@
 {
-    "typescript.tsc.autoDetect": "off",
-    "cSpell.words": [
-        "PVSC"
-    ]
+  "typescript.tsc.autoDetect": "off",
+  "cSpell.words": ["PVSC"]
 }
