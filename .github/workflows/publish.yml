@@ -1,9 +1,9 @@
-on: 
+on:
   push:
     tags:
       - "v*"
   workflow_dispatch:
-   inputs:
+    inputs:
       publish:
         type: boolean
         description: Publish Extension to Marketplace
@@ -29,7 +29,7 @@ jobs:
 
       - name: 🏗️ Build Project
         run: pnpm i && pnpm run package
-  
+
       - name: 📤 Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -45,7 +45,12 @@ jobs:
               exit 1
           fi
 
-      - name: 🛒 Upload Extension
+      - name: 🛒 Upload Extension (Microsoft)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish == 'true' }}
         run: |
           pnpm vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }}
+
+      - name: 🛒 Upload Extension (Open-VSX)
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish == 'true' }}
+        run: |
+          pnpx ovsx publish --pat ${{ secrets.OVSX_TOKEN }}
