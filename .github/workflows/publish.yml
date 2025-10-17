@@ -4,9 +4,12 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      publish:
+      publish-ms:
         type: boolean
         description: Publish Extension to Marketplace
+      publish-ovsx:
+        type: boolean
+        description: Publish Extension to Open-VSX Marketplace
 
 name: 📦 Publish Extension
 
@@ -46,11 +49,11 @@ jobs:
           fi
 
       - name: 🛒 Upload Extension (Microsoft)
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish == 'true' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish-ms == 'true' }}
         run: |
           pnpm vsce publish --pat ${{ secrets.MARKETPLACE_TOKEN }}
 
       - name: 🛒 Upload Extension (Open-VSX)
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish == 'true' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish-ovsx == 'true' }}
         run: |
           pnpx ovsx publish *.vsix --pat ${{ secrets.OVSX_TOKEN }}
