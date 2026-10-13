@@ -24,6 +24,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "extensionDependencies": [
+    "ms-python.python"
+  ],
   "main": "./out/bundle",
   "contributes": {
     "commands": [

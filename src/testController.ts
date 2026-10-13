@@ -201,8 +201,17 @@ function init(controller: TestController)
         testRun.end();
     };
 
+    const profiles = new Set<string>();
+
     const registerProfiles = (workspace: WorkspaceFolder) =>
     {
+        if (profiles.has(workspace.uri.toString()))
+        {
+            return;
+        }
+
+        profiles.add(workspace.uri.toString());
+
         const handler = async (request: TestRunRequest, token: CancellationToken) =>
             await commands.test.call({ include: request.include?.map(x => x.id), kind: request.profile?.kind }, request, token, workspace);
 
