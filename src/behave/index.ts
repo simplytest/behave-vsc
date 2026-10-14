@@ -106,11 +106,11 @@ export async function analyze(file: string, workspace: WorkspaceFolder, options?
     }
 
     const { executable, args } = command.value;
-    const { status, stdout, stderr } = await spawn(executable, args, { cwd: workspace.uri.fsPath });
+    const { status, stdout, stderr, message } = await spawn(executable, args, { cwd: workspace.uri.fsPath });
 
     if (status !== 0)
     {
-        LOG.error("Behave failed", stdout, stderr);
+        LOG.error("Behave failed", message, stdout, stderr);
         return err(Error.BadStatus);
     }
 

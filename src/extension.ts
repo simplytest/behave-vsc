@@ -1,4 +1,5 @@
-import { ExtensionContext, languages, window, workspace } from "vscode";
+import { PythonExtension } from "@vscode/python-extension";
+import { ExtensionContext, languages, window, workspace, WorkspaceFolder } from "vscode";
 import { definitionProvider } from "./codeDefinition";
 import { codeLensProvider } from "./codeLens";
 import { commands } from "./commands";
@@ -6,7 +7,7 @@ import { LOG } from "./log";
 import { settings } from "./settings";
 import { testController } from "./testController";
 
-export function activate(context: ExtensionContext)
+export async function activate(context: ExtensionContext)
 {
     LOG.info("Extension activated");
 
@@ -20,13 +21,16 @@ export function activate(context: ExtensionContext)
         languages.registerDefinitionProvider({ scheme: "file", language: "feature", pattern: settings.allowedFiles() }, definitionProvider),
     );
 
-    if (settings.autoDiscover())
-    {
-        commands.discover.call();
-    } else
-    {
-        commands.analyze.call();
-    }
+    const python = await PythonExtension.api();
+    await python.ready;
+
+    const load = (folders?: readonly WorkspaceFolder[]) => settings.autoDiscover() ? commands.discover.call(folders) : commands.analyze.call();
+
+    load();
+
+    context.subscriptions.push(
+        python.environments.onDidChangeActiveEnvironmentPath(({ resource }) => load(resource && [resource])),
+    );
 
     context.subscriptions.push(
         window.onDidChangeActiveTextEditor(e => commands.analyze.call(e?.document.uri)),

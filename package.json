@@ -3,7 +3,7 @@
   "publisher": "SimplyTest",
   "description": "Test Runner support for Behave",
   "displayName": "Behave VSCode",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "preview": true,
   "repository": {
     "url": "https://github.com/simplytest/behave-vsc",
@@ -23,6 +23,9 @@
   "icon": "./data/logo.png",
   "activationEvents": [
     "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "ms-python.python"
   ],
   "main": "./out/bundle",
   "contributes": {
